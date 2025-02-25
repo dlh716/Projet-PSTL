@@ -19,6 +19,8 @@
     #include "debug/debug_time.h"
 #endif
 
+#include "backendinterface/backendinterface_BEinterface.h"
+
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../vendor/stb/stb_image_write.h"
 
@@ -1899,7 +1901,18 @@ void initialize_centers(){
 // Assigner des noeuds aux clusters et mettre à jour les centres en utilisant l'algorithme k-means
 void kmeans_iteration(Point *points, int num_points, int num_clusters, int *labels, double centers[][2], double Lx, double Ly) {
     int counts[MAX_NODES] = {0};
-    double new_centers[MAX_NODES][2] = {0};  // Stocker les nouveaux centres calculés
+
+    // Modification pour utiliser moins de memoire et eviter un seg fault
+    double ** new_centers = (double**) malloc(sizeof(double*) * num_clusters);  // Stocker les nouveaux centres calculés
+    // TODO
+
+
+    for (int i = 0; i < num_clusters; ++i)
+    {
+        new_centers[i] = (double*) malloc(sizeof(double) * 2);
+        new_centers[i][0] = 0.;
+        new_centers[i][1] = 1.;
+    }
 
     // Assigner chaque point au cluster le plus proche et mettre à jour les centres
     for (int i = 0; i < num_points; i++) {
@@ -1946,6 +1959,12 @@ void kmeans_iteration(Point *points, int num_points, int num_clusters, int *labe
             while (centers[i][1] > Ly / 2) centers[i][1] -= Ly;
         }
     }
+
+    for (int i = 0; i < num_clusters; ++i)
+    {
+        free(new_centers[i]);
+    }
+    free(new_centers);
 }
 
 // Assigner des couleurs aux clusters
@@ -2121,7 +2140,7 @@ for (int i = 0; i < num_nodes; i++) {
             }
         }
 
-        display();
+        //display();
 	//printf("Iteration %d, Max_movement %lf, friction %lf \n", iteration, Max_movement,friction);
 	//fflush(stdout);  // Force le vidage du tampon de la sortie standard
 
@@ -2548,6 +2567,345 @@ void idle() {
         glutPostRedisplay();
     }
 }
+
+/**
+ * 
+ * 
+ * 
+ Fonction Pour L'interface
+ * 
+ * 
+ * 
+ * 
+ */
+
+ JNIEXPORT void JNICALL Java_backendinterface_BEinterface_updatePositions
+ (JNIEnv * env, jobject obj)
+{
+   //int iteration;
+   double Max_movement;
+   double PasMaxX = Lx/10;
+   double PasMaxY = Ly/10;
+   double FMaxX = Lx/(friction*1000);
+   double FMaxY = Ly/(friction*1000);
+   double rep_force=1;
+   thresholdS = (Lx/4000)*(Ly/4000);
+   thresholdA = (Lx/4000)*(Ly/4000);
+   epsilon = (Lx/800)*(Ly/800);
+   seuilrep = (Lx/1000)*(Lx/1000);
+
+   static Point forces[MAX_NODES] = {0};
+
+    for (int edge_index = 0; edge_index < num_edges; edge_index++) {
+        int node1 = edges[edge_index].node1;
+        int node2 = edges[edge_index].node2;
+
+        Point dir;
+        toroidal_vector(&dir, positions[node1], positions[node2]);
+
+        double dist_squared = dir.x * dir.x + dir.y * dir.y;
+        double att_force = attraction_coeff; //*dist_squared;
+        
+        if (dist_squared > thresholdA) {            
+            forces[node1].x += dir.x * att_force;
+            forces[node1].y += dir.y * att_force;
+            forces[node2].x -= dir.x * att_force;
+            forces[node2].y -= dir.y * att_force;
+        }
+    }
+
+    double half_Lx = Lx / 2.0;
+    double half_Ly = Ly / 2.0;
+    
+    
+    for (int cluster = 0; cluster < n_clusters; cluster++) {
+        int size = cluster_nodes[cluster].size;
+        for (int i = 0; i < size; i++) {
+            int node_i = cluster_nodes[cluster].nodes[i];
+    
+    
+    
+            Point pi = positions[node_i];
+            for (int j = i + 1; j < size; j++) {
+                int node_j = cluster_nodes[cluster].nodes[j];
+                Point dir;
+                toroidal_vector(&dir, pi, positions[node_j]);
+    
+                double dist_squared = dir.x * dir.x + dir.y * dir.y;
+                if (dist_squared > seuilrep) { // Assume a minimum distance to avoid division by zero
+                    //double dist = sqrt(dist_squared);
+                    if (mode == 0) { rep_force = repulsion_coeff*(node_degrees[i]+1)*(node_degrees[j]+1) / dist_squared;} else
+                       if (mode==1) { rep_force = repulsion_coeff/ dist_squared*dist_squared;} else
+                            {if (communities[i] != communities[j]) {//printf("extra repulsion %d, %d \n",i,j);
+                            rep_force = 100000*repulsion_coeff*(node_degrees[i]+1)*(node_degrees[j]+1) / dist_squared;} 
+                            else {rep_force = repulsion_coeff*(node_degrees[i]+1)*(node_degrees[j]+1) / dist_squared;} }
+                                        
+                    forces[node_i].x -= dir.x * rep_force;
+                    forces[node_i].y -= dir.y * rep_force;
+                    forces[node_j].x += dir.x * rep_force;
+                    forces[node_j].y += dir.y * rep_force;
+                } else
+              {double rep_force = repulsion_coeff / seuilrep;
+                                        
+                    forces[node_i].x -= dir.x * rep_force;
+                    forces[node_i].y -= dir.y * rep_force;
+                    forces[node_j].x += dir.x * rep_force;
+                    forces[node_j].y += dir.y * rep_force;}
+            }
+                // capper les forces d'attractions
+        forces[node_i].x = fmax(fmin(forces[node_i].x, FMaxX), -FMaxX);
+        forces[node_i].y = fmax(fmin(forces[node_i].y, FMaxY), -FMaxY);
+    
+        }
+    }
+
+    // Step 2bis: Repulsion forces based on anti-edges
+    for (int edge_index = 0; edge_index < num_antiedges; edge_index++) {
+        int node1 = antiedges[edge_index].node1;
+        int node2 = antiedges[edge_index].node2;
+
+        Point dir;
+        toroidal_vector(&dir, positions[node1], positions[node2]);
+
+        double dist = sqrt(dir.x * dir.x + dir.y * dir.y);
+        if (dist > seuilrep) {
+            double rep_force = coeff_antiarete/(dist*dist);
+            forces[node1].x -= (dir.x / dist) * rep_force;
+            forces[node1].y -= (dir.y / dist) * rep_force;
+            forces[node2].x += (dir.x / dist) * rep_force;
+            forces[node2].y += (dir.y / dist) * rep_force;
+        } else {double rep_force = coeff_antiarete/ seuilrep;
+                                        
+                    forces[node1].x -= dir.x * rep_force;
+                    forces[node1].y -= dir.y * rep_force;
+                    forces[node2].x += dir.x * rep_force;
+                    forces[node2].y += dir.y * rep_force;}
+    }
+
+    // Étape 3 : Mettre à jour les positions en fonction des forces
+    Max_movement = 0.0;
+    for (int i = 0; i < num_nodes; i++) {
+        velocities[i].x = (velocities[i].x + forces[i].x) * friction;
+        velocities[i].y = (velocities[i].y + forces[i].y) * friction;
+        velocities[i].x = fmin(fmax(velocities[i].x, -PasMaxX), PasMaxX); // Capper la force en x à 1
+        velocities[i].y = fmin(fmax(velocities[i].y, -PasMaxY), PasMaxY); // Capper la force en y à 1
+
+        positions[i].x += velocities[i].x;
+        positions[i].y += velocities[i].y;
+                    // Appliquer les conditions aux limites toroïdales
+                while (positions[i].x < -half_Lx) positions[i].x += Lx;
+                while (positions[i].x > half_Lx) positions[i].x -= Lx;
+                while (positions[i].y < -half_Ly) positions[i].y += Ly;
+                while (positions[i].y > half_Ly) positions[i].y -= Ly;
+
+        Max_movement = fmax(Max_movement, velocities[i].x * velocities[i].x + velocities[i].y * velocities[i].y);
+    }
+
+        // Étape 4 : Mettre à jour les clusters tous les quelques itérations
+        if (iteration % (saut * (1+0*espacement)) == 0) {
+            espacement++;
+            centers_converged = 0;
+
+            while (centers_converged == 0) {
+                double old_centers[MAX_NODES][2];
+                memcpy(old_centers, centers, sizeof(centers));
+
+                kmeans_iteration(positions, num_nodes, n_clusters, clusters, centers, Lx, Ly);
+
+                centers_converged = 1;
+                for (int i = 0; i < n_clusters; i++) {
+                    double dx = centers[i][0] - old_centers[i][0];
+                    double dy = centers[i][1] - old_centers[i][1];
+                    if ((dx * dx + dy * dy) > epsilon) {
+                        centers_converged = 0;
+                        break;
+                    }
+                }
+            }
+            clear_clusters();
+
+            for (int i = 0; i < num_nodes; i++) {
+                int best_cluster = clusters[i];
+                add_node_to_cluster(best_cluster, i);
+            }
+        }
+
+
+}
+
+JNIEXPORT jintArray JNICALL Java_backendinterface_BEinterface_getCommunitites
+  (JNIEnv * env, jobject obj)
+{
+    jintArray result = (*env)->NewIntArray(env, MAX_NODES);
+
+    (*env)->SetIntArrayRegion(env, result, 0, MAX_NODES, communities);
+
+    return result;
+}
+
+JNIEXPORT jobjectArray JNICALL Java_backendinterface_BEinterface_getClusterColors
+  (JNIEnv * env, jobject obj)
+{
+    jclass obj_class = (*env)->FindClass(env, "[F");
+    jobjectArray result = (*env)->NewObjectArray(env, MAX_NODES, obj_class, 0);
+
+    for (int i = 0; i < MAX_NODES; ++i)
+    {
+        jfloatArray float_array = (*env)->NewFloatArray(env, 3);
+        (*env)->SetFloatArrayRegion(env, float_array, 0, 3, cluster_colors[i]);
+
+        (*env)->SetObjectArrayElement(env, result, i, float_array);
+    }
+
+    return result;
+}
+
+JNIEXPORT jobjectArray JNICALL Java_backendinterface_BEinterface_getEdges
+  (JNIEnv * env, jobject obj)
+{
+    // remplacer "backendinterface/Edge" par "[packageName]/[nomClasse]"
+    jclass obj_class = (*env)->FindClass(env, "backendinterface/Edge");
+    jmethodID edge_constructor = (*env)->GetMethodID(env, obj_class, "<init>", "(IID)V");
+    jobject initial_elem = (*env)->NewObject(env, obj_class, edge_constructor, 0, 0, 0.);
+    
+    jobjectArray result = (*env)->NewObjectArray(env, num_edges, obj_class, initial_elem);
+
+    for (int i = 0; i < num_edges; ++i)
+    {
+        int node1 = edges[i].node1;
+        int node2 = edges[i].node2;
+        double weight = edges[i].weight;
+        jobject edge = (*env)->NewObject(env, obj_class, edge_constructor, node1, node2, weight);
+    
+        (*env)->SetObjectArrayElement(env, result, i, edge);
+    }
+
+    return result;
+}
+
+JNIEXPORT jobjectArray JNICALL Java_backendinterface_BEinterface_getPositions
+  (JNIEnv * env, jobject obj)
+{
+    // remplacer "backendinterface/Point" par "[packageName]/[nomClasse]"
+    jclass obj_class = (*env)->FindClass(env, "backendinterface/Point");
+    jmethodID point_constructor = (*env)->GetMethodID(env, obj_class, "<init>", "(DD)V");
+    jobject initial_elem = (*env)->NewObject(env, obj_class, point_constructor, 0., 0.);
+
+    jobjectArray result = (*env)->NewObjectArray(env, num_nodes, obj_class, initial_elem);
+
+    for (int i = 0; i < num_nodes; ++i)
+    {
+        double x = positions[i].x;
+        double y = positions[i].y;
+
+        jobject point = (*env)->NewObject(env, obj_class, point_constructor, x, y);
+
+        (*env)->SetObjectArrayElement(env, result, i, point);
+    }
+
+    return result;
+}
+
+JNIEXPORT void JNICALL Java_backendinterface_BEinterface_startsProgram
+  (JNIEnv * env, jobject obj, jstring filepath)
+{
+    srand(time(NULL));
+
+    const char* str = (*env)->GetStringUTFChars(env, filepath, JNI_FALSE);
+
+    load_csv_data(str);
+    
+    InitPool(&pool, 1000, 8);
+
+    int *sampled_rows = NULL;
+    int sampled_num_rows = 0;
+    sample_rows(&sampled_rows, &sampled_num_rows);
+    num_rows = sampled_num_rows;
+    num_nodes = num_rows;
+    #ifdef _DEBUG_
+        struct chrono chr;
+        chr_assign_log(&chr, "debug.csv");
+        chr_start_clock(&chr);
+        calculate_similitude_and_edges(threshold, coeff_antiarete);
+        chr_stop(&chr);
+        chr_close_log(&chr);
+    #else
+        calculate_similitude_and_edges(threshold, coeff_antiarete);
+    #endif
+
+
+    
+    printf("Louvain (0), Louvain par composante (1) ou Leiden (2) ou Leiden CPM (3) ou couleurs speciales (4) \n");
+    scanf("%d", &ll);
+
+
+    if (ll == 0) {modeA=0;
+        num_communities = louvain_method();
+        initialize_community_colors();
+        printf("Louvain fini \n");
+    } else if (ll == 1) {modeA=0;
+        num_communities = louvain_methodC();
+        initialize_community_colors();
+        printf("Louvain fini \n");
+    } else if (ll == 2) {modeA=0;
+        num_communities = leiden_method();
+        initialize_community_colors();
+        printf("Leiden fini \n");
+    } else if (ll == 3) {modeA=0;
+        num_communities = leiden_method_CPM();
+        initialize_community_colors();
+        printf("Leiden CPM fini \n");
+    } else if (ll == 4) {
+        //int nbValeurs;
+        //int S[MAX_NODES]={0};
+        num_communities = leiden_method_CPM();
+        initialize_community_colors();
+        // Demander le chemin du fichier à l'utilisateur
+        lireColonneCSV(S, &nbValeurs);
+        // Afficher les valeurs lues
+        printf("nombres de valeurs lues : %d pour %d données\n",nbValeurs,num_nodes);
+        modeA =1;
+        compute_ratio_S(S);
+    } else {
+        printf("Option invalide\n");
+    }
+
+    compute_average_vectors();
+    printf("Vecteurs moyens fini \n");
+    for (int i = 0; i < num_nodes; i++) {
+        random_point_in_center(&positions[i]);
+        velocities[i].x = velocities[i].y = 0.0;
+    }
+    n_clusters = (int)sqrt(num_nodes);
+    init_clusters(n_clusters);
+    initialize_centers();
+    assign_cluster_colors();
+    calculate_node_degrees();
+
+    free(sampled_rows);
+}
+
+JNIEXPORT void JNICALL Java_backendinterface_BEinterface_freeAllocatedMemory
+  (JNIEnv * env, jobject obj)
+{
+
+    // Libérer la mémoire allouée pour les voisins
+    for (int i = 0; i < num_nodes; i++) {
+    	Neighbor* neighbor = adjacency_list[i].head;
+        while (neighbor != NULL) {
+           Neighbor* next = neighbor->next;
+           free(neighbor);
+           neighbor = next;
+        }
+    }
+    free_clusters();
+
+    FreePool(&pool);
+
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 // Fonction principale
 int main(int argc, char *argv[]) {
