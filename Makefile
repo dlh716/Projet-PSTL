@@ -1,6 +1,6 @@
 CC = gcc-14
 FLAGS = -Wall -g -lGL -lGLU -lglut -fPIC -lm -lc -shared
-JNI_FLAGS = -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux -fPIC
+JNI_FLAGS = -I/usr/lib/jvm/java-21-openjdk-amd64/include -I/usr/lib/jvm/java-21-openjdk-amd64/include/linux -fPIC
 
 SRC_DIR = src
 OUT_DIR = out
