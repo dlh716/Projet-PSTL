@@ -75,6 +75,11 @@ public class BEinterface {
         positions = bei.getPositions();
         System.out.println(positions[positions.length - 1].x + " " + positions[positions.length - 1].y);
 
+        bei.updatePositions();
+
+        positions = bei.getPositions();
+        System.out.println(positions[positions.length - 1].x + " " + positions[positions.length - 1].y);
+
         bei.freeAllocatedMemory();
     }
 }
