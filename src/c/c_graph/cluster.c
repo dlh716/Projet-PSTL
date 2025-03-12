@@ -10,6 +10,7 @@ int n_clusters;
 
 double epsilon = 0.1;
 
+
 // modifiable par utilisateur
 double repulsion_coeff = 1;
 int mode = 0;

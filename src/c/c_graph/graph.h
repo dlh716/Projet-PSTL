@@ -27,7 +27,6 @@ extern Point velocities[MAX_NODES];
 extern int node_degrees[MAX_NODES];
 
 extern _Atomic int num_edges;
-
 extern _Atomic int num_antiedges;
 extern double coeff_antiarete; // Facteur de répulsion des antiarêtes
 extern Edge antiedges[MAX_EDGES];  // Pour les anti-arêtes

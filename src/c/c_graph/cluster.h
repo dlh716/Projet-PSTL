@@ -20,7 +20,6 @@ typedef struct Neighbor {
 
 // Structures utilisées dans la méthode de Louvain
 extern int communities[MAX_NODES]; // Stocke les communautés détectées par Louvain
-
 extern int clusters[MAX_NODES];
 extern float cluster_colors[MAX_NODES][3];
 extern double centers[MAX_NODES][2];

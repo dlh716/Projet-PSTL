@@ -8,7 +8,6 @@ Point velocities[MAX_NODES];
 int node_degrees[MAX_NODES];
 
 _Atomic int num_edges = 0;
-
 _Atomic int num_antiedges = 0;
 double coeff_antiarete = 100; // Facteur de répulsion des antiarêtes
 Edge antiedges[MAX_EDGES];  // Pour les anti-arêtes

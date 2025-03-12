@@ -11,18 +11,19 @@
 #include <ctype.h>
 
 #include <stdatomic.h>
-#include "concurrent/Pool.h"
+
 #include "c_graph/cluster.h"
 #include "c_graph/graph.h"
+#include "../concurrent/Pool.h"
 
 #ifdef _DEBUG_
-    #include "debug/debug_time.h"
+    #include "../debug/debug_time.h"
 #endif
 
-#include "backendinterface/backendinterface_BEinterface.h"
+#include "../../out/graph_Graph.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "../vendor/stb/stb_image_write.h"
+#include "../../lib/stb_image_write.h"
 
 #define MAX_LINE_LENGTH 10000  // Longueur maximale d'une ligne dans le fichier
 #define IMAGE_SIZE 15000
@@ -1619,7 +1620,7 @@ void normalize(Point *p) {
  * 
  */
 
-JNIEXPORT void JNICALL Java_backendinterface_BEinterface_updatePositions
+JNIEXPORT void JNICALL Java_graph_Graph_updatePositions
  (JNIEnv * env, jobject obj)
 {
    double Max_movementOld = 0.0;
@@ -1659,7 +1660,7 @@ JNIEXPORT void JNICALL Java_backendinterface_BEinterface_updatePositions
    }
 }
 
-JNIEXPORT jintArray JNICALL Java_backendinterface_BEinterface_getCommunitites
+JNIEXPORT jintArray JNICALL Java_graph_Graph_getCommunitites
   (JNIEnv * env, jobject obj)
 {
     jintArray result = (*env)->NewIntArray(env, MAX_NODES);
@@ -1669,7 +1670,7 @@ JNIEXPORT jintArray JNICALL Java_backendinterface_BEinterface_getCommunitites
     return result;
 }
 
-JNIEXPORT jobjectArray JNICALL Java_backendinterface_BEinterface_getClusterColors
+JNIEXPORT jobjectArray JNICALL Java_graph_Graph_getClusterColors
   (JNIEnv * env, jobject obj)
 {
     jclass obj_class = (*env)->FindClass(env, "[F");
@@ -1686,11 +1687,11 @@ JNIEXPORT jobjectArray JNICALL Java_backendinterface_BEinterface_getClusterColor
     return result;
 }
 
-JNIEXPORT jobjectArray JNICALL Java_backendinterface_BEinterface_getEdges
+JNIEXPORT jobjectArray JNICALL Java_graph_Graph_getEdges
   (JNIEnv * env, jobject obj)
 {
     // remplacer "backendinterface/Edge" par "[packageName]/[nomClasse]"
-    jclass obj_class = (*env)->FindClass(env, "backendinterface/Edge");
+    jclass obj_class = (*env)->FindClass(env, "graph/EdgeInterm");
     jmethodID edge_constructor = (*env)->GetMethodID(env, obj_class, "<init>", "(IID)V");
     jobject initial_elem = (*env)->NewObject(env, obj_class, edge_constructor, 0, 0, 0.);
     
@@ -1709,11 +1710,11 @@ JNIEXPORT jobjectArray JNICALL Java_backendinterface_BEinterface_getEdges
     return result;
 }
 
-JNIEXPORT jobjectArray JNICALL Java_backendinterface_BEinterface_getPositions
+JNIEXPORT jobjectArray JNICALL Java_graph_Graph_getPositions
   (JNIEnv * env, jobject obj)
 {
     // remplacer "backendinterface/Point" par "[packageName]/[nomClasse]"
-    jclass obj_class = (*env)->FindClass(env, "backendinterface/Point");
+    jclass obj_class = (*env)->FindClass(env, "graph/Vertex");
     jmethodID point_constructor = (*env)->GetMethodID(env, obj_class, "<init>", "(DD)V");
     jobject initial_elem = (*env)->NewObject(env, obj_class, point_constructor, 0., 0.);
 
@@ -1732,7 +1733,7 @@ JNIEXPORT jobjectArray JNICALL Java_backendinterface_BEinterface_getPositions
     return result;
 }
 
-JNIEXPORT void JNICALL Java_backendinterface_BEinterface_startsProgram
+JNIEXPORT void JNICALL Java_graph_Graph_startsProgram
   (JNIEnv * env, jobject obj, jstring filepath)
 {
     srand(time(NULL));
@@ -1811,7 +1812,7 @@ JNIEXPORT void JNICALL Java_backendinterface_BEinterface_startsProgram
     free(sampled_rows);
 }
 
-JNIEXPORT void JNICALL Java_backendinterface_BEinterface_freeAllocatedMemory
+JNIEXPORT void JNICALL Java_graph_Graph_freeAllocatedMemory
   (JNIEnv * env, jobject obj)
 {
 
