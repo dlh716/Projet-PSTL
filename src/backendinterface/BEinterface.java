@@ -10,8 +10,8 @@ package backendinterface;
 public class BEinterface {
 
     static {
-        // Je suis desole je n'arrivais pas a faire tourner le programme sans ma propre absolute path
-        System.load("/home/damien/reformed/PSTL_25_visualisation_graphes/src/libnative.so");
+        String libnative = System.getProperty("user.dir") + "/out/libnative.so";
+        System.load(libnative);
     }
 
 
@@ -68,11 +68,6 @@ public class BEinterface {
         Edge[] edges = bei.getEdges();
         Point[] positions = bei.getPositions();
 
-        System.out.println(positions[positions.length - 1].x + " " + positions[positions.length - 1].y);
-
-        bei.updatePositions();
-
-        positions = bei.getPositions();
         System.out.println(positions[positions.length - 1].x + " " + positions[positions.length - 1].y);
 
         bei.updatePositions();

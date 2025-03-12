@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+// Job Queue
 typedef void (*job)(void*);
 
 struct Job {
@@ -25,8 +26,17 @@ struct Queue{
     bool isFinished;
 
 };
+
 typedef struct Queue* queue;
 
+extern void QueueInit(queue q, int capacity);
+extern bool Push(queue q, struct Job j);
+extern bool Pop(queue q, struct Job* j);
+extern void isFinished(queue q);
+
+extern void QueueFree(queue q);
+
+// Thread Pool
 struct Pool {
 
     _Atomic int nb_op;
@@ -41,24 +51,12 @@ struct Pool {
 
 typedef struct Pool* thr_Pool;
 
-/*************************************************/
-/******************* Job Queue *******************/
-/*************************************************/
-
-extern void QueueInit(queue q, int capacity);
-extern bool Push(queue q, struct Job j);
-extern bool Pop(queue q, struct Job* j);
-extern void isFinished(queue q);
-extern void QueueFree(queue q);
-
-/*************************************************/
-/**************** Thread Pool ********************/
-/*************************************************/
-
 void InitPool(thr_Pool, int, int);
 void submit(thr_Pool, struct Job task);
 int GetOp(thr_Pool);
+
 void * work(void* arg);
+
 void FreePool(thr_Pool);
 
 #endif
