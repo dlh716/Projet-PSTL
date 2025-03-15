@@ -1623,7 +1623,7 @@ JNIEXPORT jboolean JNICALL Java_graph_Graph_updatePositions
    return 1;
 }
 
-JNIEXPORT jintArray JNICALL Java_graph_Graph_getCommunitites
+JNIEXPORT jintArray JNICALL Java_graph_Graph_getCommunities
   (JNIEnv * env, jobject obj)
 {
     jintArray result = (*env)->NewIntArray(env, MAX_NODES);
@@ -1654,7 +1654,7 @@ JNIEXPORT jobjectArray JNICALL Java_graph_Graph_getEdges
   (JNIEnv * env, jobject obj)
 {
     // remplacer "backendinterface/Edge" par "[packageName]/[nomClasse]"
-    jclass obj_class = (*env)->FindClass(env, "graph/EdgeInterm");
+    jclass obj_class = (*env)->FindClass(env, "graph/EdgeC");
     jmethodID edge_constructor = (*env)->GetMethodID(env, obj_class, "<init>", "(IID)V");
     jobject initial_elem = (*env)->NewObject(env, obj_class, edge_constructor, 0, 0, 0.);
     
@@ -1751,6 +1751,10 @@ JNIEXPORT jobject JNICALL Java_graph_Graph_computeThreshold
 JNIEXPORT jobject JNICALL Java_graph_Graph_initiliazeGraph
   (JNIEnv *env, jobject obj, jint md, jdouble thresh, jdouble anti_thresh)
 {
+
+    printf("Mode de similitude utilisé : %d\n", mode_similitude);
+    printf("Threshold utilisé : %lf\n", thresh);
+    printf("Anti-Threshold utilisé : %lf\n", anti_thresh);
 
     #ifdef _DEBUG_
         struct chrono chr;

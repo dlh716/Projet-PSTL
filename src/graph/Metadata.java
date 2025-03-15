@@ -5,8 +5,7 @@ public class Metadata {
     public double edge_threshold, anti_threshold;
     public int number_nodes, number_edges, number_antiedges, number_clusters;
 
-    public Metadata(int number_nodes, double edge_threshold, double anti_threshold)
-    {
+    public Metadata(int number_nodes, double edge_threshold, double anti_threshold) {
         this.edge_threshold = edge_threshold;
         this.anti_threshold = anti_threshold;
         this.number_nodes = number_nodes;
@@ -23,12 +22,18 @@ public class Metadata {
         double anti_threshold, 
         int number_edges, 
         int number_antiedges,
-        int number_clusters)
-    {
+        int number_clusters) {
         this(number_nodes, edge_threshold, anti_threshold);
 
         this.number_edges = number_edges;
         this.number_antiedges = number_antiedges;
         this.number_clusters = number_clusters;
+    }
+
+    public double getEdgeThreshold() {
+        return edge_threshold;
+    }
+    public double getAntiThreshold() {
+        return anti_threshold;
     }
 }

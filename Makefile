@@ -6,7 +6,7 @@ SRC_DIR = src
 OUT_DIR = out
 
 JAVAFX_DIR = lib/javafx-sdk-23.0.2/lib
-JAVAFX_MODULES = javafx.controls,javafx.fxml
+JAVAFX_MODULES = javafx.controls,javafx.fxml,javafx.graphics,javafx.swing
 
 GRAPH_JAVA = $(SRC_DIR)/*/*.java
 GRAPH_JAVA_MAIN = $(SRC_DIR)/graph/Graph.java
@@ -33,9 +33,6 @@ LIBNATIVE_OUT = $(OUT_DIR)/libnative.so
 
 OUT_NAME = forceatlas
 
-DIR_SAMPLES = samples
-DIR_SAMPLE = $(DIR_SAMPLES)/iris.csv
-
 $(DEBUG_DIR)/%.o: $(DEBUG_SRC) $(DEBUG_DEPS)
 	$(CC) -c -o $@ $< $(FLAGS)
 
@@ -52,7 +49,7 @@ all: $(CONCURRENT) $(GRAPH_C)
 	$(CC) $(JNI_FLAGS) -c $(FORCE_ATLAS) -o $(FORCE_ATLAS_OUT)
 	$(CC) $(FORCE_ATLAS_OUT) $(CONCURRENT) $(GRAPH_C) -o $(LIBNATIVE_OUT) $(FLAGS)
 
-	java -Djava.library.path=. --module-path $(JAVAFX_DIR) --add-modules $(JAVAFX_MODULES) $(GRAPH_JAVA_OUT) $(DIR_SAMPLE)
+	java -Djava.library.path=. --module-path $(JAVAFX_DIR) --add-modules $(JAVAFX_MODULES) $(GRAPH_JAVA_OUT)
 
 clean:
 	- rm -rf $(OUT_DIR)/*.o

@@ -4,7 +4,9 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
 
 public class Edge extends Line {
+
     private final Vertex start, end;
+
 
     public Edge(Vertex start, Vertex end) {
         super(start.getX(), start.getY(), end.getX(), end.getY());
@@ -13,9 +15,31 @@ public class Edge extends Line {
 
         this.start = start;
         this.end = end;
-        setStroke(Color.BLACK);
-        setStrokeWidth(0.5);
+
+        Community startCommunity = start.getCommunity();
+        Community endCommunity = end.getCommunity();
+
+        if (startCommunity != null && endCommunity != null) {
+            if (startCommunity.getId() == endCommunity.getId()) {
+                setStroke(Color.color(startCommunity.getR(), startCommunity.getG(), startCommunity.getB()));
+            } else {
+                setStroke(Color.color((startCommunity.getR() + endCommunity.getR()) / 2, (startCommunity.getG() + endCommunity.getG()) / 2, (startCommunity.getB() + endCommunity.getB()) / 2));
+            }
+        } else {
+            setStroke(Color.BLACK);
+        }
+
+        setStrokeWidth(0.3);
     }
+
+
+    public Vertex getStart() {
+        return start;
+    }
+    public Vertex getEnd() {
+        return end;
+    }
+
 
     public void update(Vertex vertex) {
         if (vertex == start) {
@@ -25,8 +49,8 @@ public class Edge extends Line {
             setEndX(vertex.getX());
             setEndY(vertex.getY());
         }
-        //System.out.println("Mise à jour de l'arrête " + this);
     }
+
 
     public String toString() {
         return start + " -> " + end;
