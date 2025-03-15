@@ -20,10 +20,10 @@
     #include "../debug/debug_time.h"
 #endif
 
-#include "../../out/graph_Graph.h"
+#include "../out/com_mongraphe_graphlayout_Graph.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "../../lib/stb_image_write.h"
+#include "../lib/stb_image_write.h"
 
 #define MAX_LINE_LENGTH 10000  // Longueur maximale d'une ligne dans le fichier
 #define IMAGE_SIZE 15000
