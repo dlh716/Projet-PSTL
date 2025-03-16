@@ -1,5 +1,8 @@
 package graph;
 
+/**
+ * Définit les constantes utilisées pour les différentes opérations du graphe
+ */
 public interface GraphData {
 
     enum SimilitudeMode { CORRELATION, DISTANCE_COSINE, DISTANCE_EUCLIDIENNE, NORME_L1, NORME_LINF, KL_DIVERGENCE }

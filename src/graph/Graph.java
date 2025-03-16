@@ -192,9 +192,9 @@ public class Graph extends Application implements GraphSettings {
         System.out.println();
 
         // Récupérer les arêtes
-        EdgeC[] edgesInterm = getEdges();
-        for (int i = 0; i < edgesInterm.length; i++) {
-            Edge e = new Edge(vertices.get(edgesInterm[i].getStart()), vertices.get(edgesInterm[i].getEnd()));
+        EdgeC[] edgesC = getEdges();
+        for (EdgeC edgeC : edgesC) {
+            Edge e = new Edge(vertices.get(edgeC.getStart()), vertices.get(edgeC.getEnd()), edgeC.getWeight());
 
             // Ajouter les arêtes à la racine
             root.getChildren().add(e);

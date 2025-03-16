@@ -1,5 +1,8 @@
 package graph;
 
+/**
+ * Définit les méthodes à appeler par l'inteface graphique pour modifier les paramètres du graphe
+ */
 public interface GraphSettings {
 
     // Initialisation (à appeler en premier)
