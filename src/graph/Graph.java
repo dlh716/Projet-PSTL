@@ -231,7 +231,7 @@ public class Graph extends Application implements GraphSettings {
                 if (vertices.get(i).getDegree() >= min_degree && !root.getChildren().contains(vertices.get(i))) {
                     root.getChildren().add(vertices.get(i));
                     for (Edge e : vertices.get(i).getEdges())
-                        if (!root.getChildren().contains(e))
+                        if (!root.getChildren().contains(e) && e.getStart().getDegree() >= min_degree && e.getEnd().getDegree() >= min_degree)
                             root.getChildren().add(e);
                 } else if (vertices.get(i).getDegree() < minimumDegree.get()) {
                     root.getChildren().remove(vertices.get(i));
