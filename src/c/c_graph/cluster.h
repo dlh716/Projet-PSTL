@@ -18,22 +18,7 @@ typedef struct Neighbor {
     struct Neighbor* next;
 } Neighbor;
 
-// Structures utilisées dans la méthode de Louvain
-extern int communities[MAX_NODES]; // Stocke les communautés détectées par Louvain
-extern int clusters[MAX_NODES];
-extern float cluster_colors[MAX_NODES][3];
-extern double centers[MAX_NODES][2];
-extern Cluster *cluster_nodes;  // Tableau de clusters
-extern int n_clusters;
-
-extern double epsilon;
-
-extern int espacement;
-
-// modifiable par utilisateur
-extern double repulsion_coeff;
-extern int saut;
-extern int mode;
+void kmeans_iteration(int num_points, int num_clusters, int *labels, double centers[][2], double Lx, double Ly);
 
 void update_clusters();
 void repulsion_intra_clusters(Point* forces, double FMaxX, double FMaxY);

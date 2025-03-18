@@ -1,3 +1,4 @@
+#include <sys/time.h>
 #include <time.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -5,6 +6,7 @@
 #include <string.h>
 
 struct chrono{
+    struct timeval tm;
     int fd;
     clock_t start, duration;
     short isPaused;

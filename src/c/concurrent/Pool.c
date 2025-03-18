@@ -1,4 +1,7 @@
 #include "Pool.h"
+#include "../global.h"
+
+struct Pool pool;
 
 void QueueInit(queue q, int capacity)
 {

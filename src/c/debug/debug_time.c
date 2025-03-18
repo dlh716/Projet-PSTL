@@ -7,7 +7,8 @@ unsigned long millis_of_clock(clock_t t)
 
 void chr_start_clock(Chrono chr)
 {
-    chr->start = clock();
+    gettimeofday(&chr->tm, NULL);
+    chr->start = chr->tm.tv_sec * 1000 + chr->tm.tv_usec / 1000;
     chr->duration = 0;
     chr->isPaused = 0;
 
@@ -25,7 +26,8 @@ void chr_start_clock(Chrono chr)
 void chr_pause(Chrono chr)
 {
     if ( ! chr->isPaused ){
-        unsigned long time_start = millis_of_clock(clock() - chr->start);
+        gettimeofday(&chr->tm, NULL);
+        unsigned long time_start = chr->tm.tv_sec * 1000 + chr->tm.tv_usec / 1000 - chr->start;
         
         chr->duration += time_start;
         chr->isPaused = 1;
@@ -33,7 +35,7 @@ void chr_pause(Chrono chr)
         if ( chr->fd != -1 ){
             char buf[128];
             // last_start, time since last start, time unpaused since call to start_clock
-            sprintf(buf, "%9ld, %9ld, %9ld\n", millis_of_clock(chr->start), time_start, chr->duration);
+            sprintf(buf, "%9ld, %9ld, %9ld\n", chr->start, time_start, chr->duration);
             write(chr->fd, buf, strlen(buf) * sizeof(char));
         }
     }
@@ -44,11 +46,12 @@ void chr_restart(Chrono chr)
     if ( chr->isPaused ){
         if ( chr->fd != -1 ){
             char buf[128];
-            sprintf(buf, "%9ld, 0, %9ld\n", millis_of_clock(chr->start), chr->duration);
+            sprintf(buf, "%9ld, 0, %9ld\n", chr->start, chr->duration);
             write(chr->fd, buf, strlen(buf) * sizeof(char));
         }
 
-        chr->start = clock();
+        gettimeofday(&chr->tm, NULL);
+        chr->start = chr->tm.tv_sec * 1000 + chr->tm.tv_usec / 1000;
         chr->isPaused = 0;
     }
 }

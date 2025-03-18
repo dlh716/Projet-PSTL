@@ -1,5 +1,5 @@
-#ifndef FORCEATLAS_POOL
-#define FORCEATLAS_POOL
+#ifndef FORCEATLAS_POOL_H
+#define FORCEATLAS_POOL_H
 
 #include <stdbool.h>
 #include <pthread.h>

@@ -1,4 +1,5 @@
 #include "cluster.h"
+#include "../global.h"
 
 int communities[MAX_NODES]; // Stocke les communautés détectées par Louvain
 
@@ -17,13 +18,15 @@ int saut = 10;
 int mode = 0;
 
 // Assigner des noeuds aux clusters et mettre à jour les centres en utilisant l'algorithme k-means
-void kmeans_iteration(Point *points, int num_points, int num_clusters, int *labels, double centers[][2], double Lx, double Ly) {
-    int counts[MAX_NODES] = {0};
+void kmeans_iteration(int num_points, int num_clusters, int *labels, double centers[][2], double Lx, double Ly) {
 
     // Modification pour utiliser moins de memoire et eviter un seg fault
+    int* counts = (int*) malloc(sizeof(int) * num_nodes);
     double ** new_centers = (double**) malloc(sizeof(double*) * num_clusters);  // Stocker les nouveaux centres calculés
-    // TODO
 
+    for (int i = 0; i < num_nodes; ++i){
+        counts[i] = 0;
+    } 
 
     for (int i = 0; i < num_clusters; ++i)
     {
@@ -39,7 +42,7 @@ void kmeans_iteration(Point *points, int num_points, int num_clusters, int *labe
 
         for (int j = 0; j < num_clusters; j++) {
             Point dir;
-            toroidal_vector(&dir, points[i], (Point){centers[j][0], centers[j][1]});
+            toroidal_vector(&dir, vertices[i], (Point){centers[j][0], centers[j][1]});
             double dist = (dir.x * dir.x + dir.y * dir.y);
 
             if (dist < min_dist) {
@@ -51,8 +54,8 @@ void kmeans_iteration(Point *points, int num_points, int num_clusters, int *labe
         labels[i] = best_cluster;
 
         // Ajuster les coordonnées du point pour qu'elles soient proches du centre du cluster
-        double adjusted_x = points[i].x;
-        double adjusted_y = points[i].y;
+        double adjusted_x = vertices[i].x;
+        double adjusted_y = vertices[i].y;
 
         while (adjusted_x - centers[best_cluster][0] > Lx / 2) adjusted_x -= Lx;
         while (centers[best_cluster][0] - adjusted_x > Lx / 2) adjusted_x += Lx;
@@ -83,6 +86,7 @@ void kmeans_iteration(Point *points, int num_points, int num_clusters, int *labe
         free(new_centers[i]);
     }
     free(new_centers);
+    free(counts);
 }
 
 // probablement privé utilisée dans update_positions
@@ -95,11 +99,11 @@ void repulsion_intra_clusters(Point* forces, double FMaxX, double FMaxY)
         for (int i = 0; i < size; i++) {
             int node_i = cluster_nodes[cluster].nodes[i];
     
-            Point pi = positions[node_i];
+            Point pi = vertices[i];
             for (int j = i + 1; j < size; j++) {
                 int node_j = cluster_nodes[cluster].nodes[j];
                 Point dir;
-                toroidal_vector(&dir, pi, positions[node_j]);
+                toroidal_vector(&dir, pi, vertices[i]);
     
                 double dist_squared = dir.x * dir.x + dir.y * dir.y;
                 if (dist_squared > seuilrep) { // Assume a minimum distance to avoid division by zero
@@ -140,14 +144,14 @@ void repulsion_intra_clusters(Point* forces, double FMaxX, double FMaxY)
 // etape 4 dans update_positions
 void update_clusters()
 {
-    if (iteration % (saut * (1+0*espacement)) == 0) {
+    if (iteration % (saut * (1+espacement)) == 0) {
         int centers_converged = 0;
 
         while (centers_converged == 0) {
             double old_centers[MAX_NODES][2];
             memcpy(old_centers, centers, sizeof(centers));
 
-            kmeans_iteration(positions, num_nodes, n_clusters, clusters, centers, Lx, Ly);
+            kmeans_iteration(num_nodes, n_clusters, clusters, centers, Lx, Ly);
 
             centers_converged = 1;
             for (int i = 0; i < n_clusters; i++) {
