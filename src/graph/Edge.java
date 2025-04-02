@@ -1,16 +1,19 @@
 package graph;
 
-import javafx.scene.paint.Color;
-import javafx.scene.shape.Line;
-
 /**
- * Représente une arête du graphe JavaFX
+ * Représente une arête du graphe
  */
-public class Edge extends Line {
+public class Edge {
 
     public static double initial_edge_weight = 0.3;
 
     private final Vertex start, end;
+
+    private final float color_r;
+    private final float color_g;
+    private final float color_b;
+
+    private final double weight;
 
 
     /**
@@ -20,8 +23,6 @@ public class Edge extends Line {
      * @param weight : poids de l'arête
      */
     public Edge(Vertex start, Vertex end, double weight) {
-
-        super(start.getX(), start.getY(), end.getX(), end.getY());
         start.addEdge(this);
         end.addEdge(this);
 
@@ -32,15 +33,16 @@ public class Edge extends Line {
         Community endCommunity = end.getCommunity();
 
         if (startCommunity != null && endCommunity != null) {
-            if (startCommunity.getId() == endCommunity.getId())
-                setStroke(Color.color(startCommunity.getR(), startCommunity.getG(), startCommunity.getB()));
-            else
-                setStroke(Color.color((startCommunity.getR() + endCommunity.getR()) / 2, (startCommunity.getG() + endCommunity.getG()) / 2, (startCommunity.getB() + endCommunity.getB()) / 2));
+            color_r = (startCommunity.getR() + endCommunity.getR()) / 2;
+            color_g = (startCommunity.getG() + endCommunity.getG()) / 2;
+            color_b = (startCommunity.getB() + endCommunity.getB()) / 2;
         } else {
-            setStroke(Color.BLACK);
+            color_r = 0;
+            color_g = 0;
+            color_b = 0;
         }
 
-        setStrokeWidth(initial_edge_weight * weight);
+        this.weight = initial_edge_weight * weight;
     }
 
 
@@ -59,17 +61,32 @@ public class Edge extends Line {
 
 
     /**
-     * Met à jour les coordonnées de l'arête si l'un de ses sommets est déplacé
-     * @param vertex : sommet à mettre à jour
+     * @return l'épaisseur de l'arête
      */
-    public void update(Vertex vertex) {
-        if (vertex == start) {
-            setStartX(vertex.getX());
-            setStartY(vertex.getY());
-        } else if (vertex == end) {
-            setEndX(vertex.getX());
-            setEndY(vertex.getY());
-        }
+    public double getWeight() {
+        return weight;
+    }
+
+
+    /**
+     * @return la composante rouge de la couleur de l'arête
+     */
+    public float getR() {
+        return color_r;
+    }
+
+    /**
+     * @return la composante verte de la couleur de l'arête
+     */
+    public float getG() {
+        return color_g;
+    }
+
+    /**
+     * @return la composante bleue de la couleur de l'arête
+     */
+    public float getB() {
+        return color_b;
     }
 
 

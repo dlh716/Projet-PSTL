@@ -5,7 +5,9 @@ package graph;
  */
 public interface GraphSettings {
 
-    // Initialisation (à appeler en premier)
+    // -------------------------------------------------------------------------
+    // Initialisation (à appeler avant le lancement de la simulation)
+    // -------------------------------------------------------------------------
 
     /**
      * Initialise le graphe avec les données du fichier .csv
@@ -16,19 +18,44 @@ public interface GraphSettings {
      * @see GraphData.SimilitudeMode
      * @see GraphData.NodeCommunity
      */
-    double[][] init(String path, GraphData.SimilitudeMode mode, GraphData.NodeCommunity community);
+    double[][] initGraph(String path, GraphData.SimilitudeMode mode, GraphData.NodeCommunity community);
 
     /**
      * Initialise la taille de l'écran du graphe
      * @param width Largeur de l'écran (en px)
      * @param height Hauteur de l'écran (en px)
      */
-    void setScreenSize(double width, double height);
+    void setScreenSize(int width, int height);
+
+    /**
+     * Modifie la couleur de fond du graphe
+     * @param color_r Composante rouge de la couleur
+     * @param color_g Composante verte de la couleur
+     * @param color_b Composante bleue de la couleur
+     */
+    void setBackgroundColor(float color_r, float color_g, float color_b);
+
+    /**
+     * @param upscale Facteur d'agrandissement pour le graphe
+     */
+    void setUpscale(int upscale);
+
+    /**
+     * @param size Taille initiale d'un sommet
+     */
+    void setInitialNodeSize(double size);
+
+    /**
+     * @param factor Facteur d'agrandissement selon le degré d'un sommet (0 pour que la taille soit identique pour tous les sommets, > 0  pour faire varier la taille proportionnellement au degré)
+     */
+    void setDegreeScaleFactor(double factor);
 
 
 
 
+    // -------------------------------------------------------------------------
     // Mode de sélection
+    // -------------------------------------------------------------------------
 
     /**
      * @return le mode actuel du graphe
@@ -46,7 +73,9 @@ public interface GraphSettings {
 
 
 
+    // -------------------------------------------------------------------------
     // Paramètres de la simulation
+    // -------------------------------------------------------------------------
 
     /**
      * @return le seuil recommandé pour les arêtes
@@ -81,40 +110,17 @@ public interface GraphSettings {
     void setAntiThreshold(double antiThreshold);
 
     /**
-     * @param upscale Facteur d'agrandissement pour le graphe
-     */
-    void setUpscale(int upscale);
-
-    /**
-     * @param size Taille initiale d'un sommet
-     */
-    void setInitialNodeSize(double size);
-
-    /**
-     * @param factor Facteur d'agrandissement selon le degré d'un sommet (0 pour que la taille soit identique pour tous les sommets, > 0  pour faire varier la taille proportionnellement au degré)
-     */
-    void setDegreeScaleFactor(double factor);
-
-    /**
      * Affiche les sommets dont le degré est supérieur ou égal à degree
      * @param degree Degré minimum des sommets à afficher
      */
     void setMiniumDegree(int degree);
 
-    /**
-     * @param rate Intervalle de temps entre chaque mise à jour du graphe (en secondes)
-     */
-    void setRefreshRate(double rate);
-
-    /**
-     * @param hexaColor Couleur de fond du graphe (au format hexadécimal)
-     */
-    void setBackGroundColor(String hexaColor);
 
 
 
-
+    // -------------------------------------------------------------------------
     // Options supplémentaires
+    // -------------------------------------------------------------------------
 
     /**
      * Exporte le graphe en image PNG
