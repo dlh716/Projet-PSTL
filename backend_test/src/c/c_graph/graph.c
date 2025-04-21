@@ -65,7 +65,7 @@ void random_point_in_center(int index) {
     double center_height = Ly * 0.5;
     vertices[index].x = (rand() / (double)RAND_MAX) * center_width - center_width / 2;
     vertices[index].y = (rand() / (double)RAND_MAX) * center_height - center_height / 2;
-    vertices[index].deleted = 0;
+    vertices[index].deleted = 1;
 }
 
 void translate_positions(double dx, double dy) {
