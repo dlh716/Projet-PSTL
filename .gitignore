@@ -50,3 +50,9 @@ Mkfile.old
 dkms.conf
 
 *Zone.Identifier
+
+.idea
+lib/javafx*
+
+*.log
+*.class

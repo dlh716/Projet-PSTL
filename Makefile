@@ -93,3 +93,4 @@ clean:
 	- rm -rf $(SRC_DIR)/*/*/*.o
 	- rm -rf $(GRAPH_C_DIR)/*.o
 	- rm -rf $(shell find out -mindepth 1 -type d)
+	- rm -rf *.log

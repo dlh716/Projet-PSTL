@@ -403,8 +403,11 @@ public class Graph extends Application implements GLEventListener, GraphSettings
                 else if (isMoveMode.get() && isDraggingGraph) {
                     double deltaX = e.getX() - dragStartX;
                     double deltaY = e.getY() - dragStartY;
-                    viewOffsetX += deltaX;
-                    viewOffsetY -= deltaY;
+
+                    double speedFactor = 0.8;
+
+                    viewOffsetX -= deltaX * speedFactor;
+                    viewOffsetY += deltaY * speedFactor;
                     dragStartX = e.getX();
                     dragStartY = e.getY();
                     updated = true;
@@ -430,7 +433,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
                 double mouseXBefore = (e.getX() - WIDTH / 2.0) + viewOffsetX;
                 double mouseYBefore = (HEIGHT / 2.0 - e.getY()) + viewOffsetY;
 
-                if (scrollY < 0) {
+                if (scrollY > 0) {
                     zoomFactor *= zoomAmount;
                 } else {
                     zoomFactor /= zoomAmount;
@@ -686,7 +689,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
                 new KeyFrame(Duration.seconds(15), e -> {
                     setMode(GraphData.GraphMode.SELECTION);
                     System.out.print("Switch to " + getMode());
-                    System.out.println(" - Vous pouvez vous déplacer dans le graphe");
+                    System.out.println(" - Vous pouvez sélectionner et déplacer des sommets");
                 })
         );
         tl1.setCycleCount(1);
@@ -696,49 +699,59 @@ public class Graph extends Application implements GLEventListener, GraphSettings
                 new KeyFrame(Duration.seconds(25), e -> {
                     setMode(GraphData.GraphMode.RUN);
                     System.out.print("Switch to " + getMode());
-                    System.out.println(" - Vous pouvez sélectionner et déplacer des sommets");
+                    System.out.println(" - Exécution du graphe (en mouvement)");
                 })
         );
         tl2.setCycleCount(1);
         tl2.play();
 
-        Timeline tl2b = new Timeline(
+        Timeline tl3 = new Timeline(
                 new KeyFrame(Duration.seconds(30), e -> {
-                    setMode(GraphData.GraphMode.SELECTION);
+                    setMode(GraphData.GraphMode.MOVE);
                     System.out.print("Switch to " + getMode());
                     System.out.println(" - Vous pouvez vous déplacer dans le graphe");
-                })
-        );
-        tl2b.setCycleCount(1);
-        tl2b.play();
-
-        Timeline tl3 = new Timeline(
-                new KeyFrame(Duration.seconds(40), e -> {
-                    setMode(GraphData.GraphMode.RUN);
-                    System.out.print("Back to " + getMode());
-                    System.out.println(" - Exécution du graphe (en mouvement)");
                 })
         );
         tl3.setCycleCount(1);
         tl3.play();
 
         Timeline tl4 = new Timeline(
-                new KeyFrame(Duration.seconds(50), e -> {
-                    setMiniumDegree(10);
-                    System.out.println("Remove nodes with degree < 10");
+                new KeyFrame(Duration.seconds(40), e -> {
+                    setMode(GraphData.GraphMode.SELECTION);
+                    System.out.print("Switch to " + getMode());
+                    System.out.println(" - Vous pouvez sélectionner et déplacer des sommets");
                 })
         );
         tl4.setCycleCount(1);
         tl4.play();
 
         Timeline tl5 = new Timeline(
-                new KeyFrame(Duration.seconds(55), e -> {
-                    setMiniumDegree(0);
-                    System.out.println("Reset minimum degree restriction");
+                new KeyFrame(Duration.seconds(50), e -> {
+                    setMode(GraphData.GraphMode.RUN);
+                    System.out.print("Back to " + getMode());
+                    System.out.println(" - Exécution du graphe (en mouvement)");
                 })
         );
         tl5.setCycleCount(1);
         tl5.play();
+
+        /*Timeline tl6 = new Timeline(
+                new KeyFrame(Duration.seconds(55), e -> {
+                    setMiniumDegree(10);
+                    System.out.println("Remove nodes with degree < 10");
+                })
+        );
+        tl6.setCycleCount(1);
+        tl6.play();
+
+        Timeline tl7 = new Timeline(
+                new KeyFrame(Duration.seconds(60), e -> {
+                    setMiniumDegree(0);
+                    System.out.println("Reset minimum degree restriction");
+                })
+        );
+        tl7.setCycleCount(1);
+        tl7.play();*/
 
     }
 
