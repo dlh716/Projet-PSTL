@@ -9,10 +9,12 @@ public interface GraphData {
 
     enum NodeCommunity { LOUVAIN, LOUVAIN_PAR_COMPOSANTE, LEIDEN, LEIDEN_CPM, COULEURS_SPECIALES }
 
-    /** RUN : Exécution du graphe (en mouvement)
-     *  SELECTION : Permet de sélectionner et déplacer des sommets
-     *  MOVE : Permet de se déplacer dans le graphe
-     *  DELETE : Permet de supprimer des sommets */
+    enum RepulsionMode { REPULSION_BY_DEGREE, REPULSION_BY_EDGES, REPULSION_BY_COMMUNITIES }
+
+    /** <p><code>RUN</code> : Exécution du graphe (en mouvement)</p>
+     *  <p><code>SELECTION</code> : Permet de sélectionner et déplacer des sommets</p>
+     *  <p><code>MOVE</code> : Permet de se déplacer dans le graphe</p>
+     *  <p><code>DELETE</code> : Permet de supprimer des sommets</p> */
     enum GraphMode { RUN, SELECTION, MOVE, DELETE }
 
 }

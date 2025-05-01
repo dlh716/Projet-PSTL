@@ -7,7 +7,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
-import java.sql.Time;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -24,7 +23,6 @@ import com.jogamp.newt.opengl.GLWindow;
 import com.jogamp.opengl.GL4;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.GLCapabilities;
-import com.jogamp.opengl.GLContext;
 import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.GLProfile;
 import com.jogamp.opengl.awt.GLJPanel;
@@ -51,57 +49,33 @@ public class Graph extends Application implements GLEventListener, GraphSettings
     }
 
     // Méthodes JNI
-    public native double[][] startsProgram(String filename);
-    public native Metadata initiliazeGraph(int modeCommunity, double threshold, double anti_threshold);
-    public native boolean updatePositions();
-    public native Vertex[] getPositions();
-    public native void setNodePosition(int index, double x, double y);
-    public native EdgeC[] getEdges();
-    public native int[] getCommunities();
-    public native float[][] getClusterColors();
-    public native Metadata computeThreshold(int modeSimilitude);
+    private native double[][] startsProgram(String filename);
+	private native Metadata computeThreshold(int modeSimilitude);
+	private native Metadata initiliazeGraph(int modeCommunity, double threshold, double anti_threshold);
 
-    // A modifier quand le graphe est en pause
-    /** Set the frequence at which the clusters are updated
-     */
-    public native void setSaut(int saut);
-    /** Threshold indicating when the graph should be stopped
-     * (if movement is less than threshold and it has been long enough then the graph stops moving)
-     */
-    public native void setThresholdS(double thresholdS);
-    /** Set new friction *
-     */
-    public native void setFriction(double friction);
+	/** the calculation depends on how big the window is
+	 * @param width positive real number
+	 * @param height positive real number
+	 */
+	private native void setDimension(double width, double height); // TODO
 
-    // Modifiable pendant l'execution (avant prochain updatePositions)
-    /** sets the repulsion mode to be used by updatePositions
-     * @param mode : repulsion by degree (0), repulsion by edges (1), repulsion by communities (2)
-      */
-    public native void setModeRepulsion(int mode);
-    /** sets force of anti-edges
-     */
-    public native void setAntiRepulsion(double antiedge_repulsion);
-    /** sets attraction force
-     */
-    public native void setAttractionCoeff(double attraction_coeff);
-    /** sets attraction threshold
-     */
-    public native void setThresholdA(double thresholdA);
-    /** sets new repulsion threshold
-     */
-    public native void setSeuilRep(double seuilrep);
-    /** the calculation depends on how big the window is
-     * @param width positive real number
-     * @param height positive real number
-     */
-    public native void setDimension(double width, double height);
-    /** Set amortissement, factor dictating how the friction evolves after each update of the graph
-    */
-    public native void setAmortissement(double amortissement);
-
-    public native void SetNumberClusters(int new_number_of_clusters);
-
-    public native void freeAllocatedMemory();
+	private native boolean updatePositions();
+	private native Vertex[] getPositions();
+	private native void setNodePosition(int index, double x, double y);
+	private native EdgeC[] getEdges();
+	private native int[] getCommunities();
+	private native float[][] getClusterColors();
+	private native void setSaut(int saut);
+	private native void setThresholdS(double thresholdS);
+	private native void setFriction(double friction);
+	private native void setModeRepulsion(int mode);
+	private native void setAntiRepulsion(double antiedge_repulsion);
+	private native void setAttractionCoeff(double attraction_coeff);
+	private native void setThresholdA(double thresholdA);
+	private native void setSeuilRep(double seuilrep);
+	private native void setAmortissement(double amortissement);
+	private native void SetNumberClusters(int new_number_of_clusters);
+	private native void freeAllocatedMemory();
 
 
 
@@ -512,7 +486,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    	    "}\n";
 
 	    
-	    String fragmentShaderSourceEdges = 
+	    String fragmentShaderSourceEdges =
 	    	    "#version 400 core\n" +
 	    	    "in vec3 fragColor;\n" +
 	    	    "out vec4 color;\n" +
@@ -540,7 +514,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
     @Override
     public void display(GLAutoDrawable drawable) {
 	    GL4 gl = drawable.getGL().getGL4();
-	    System.out.println("display");
+	    //System.out.println("display");
 	    
 	    // Met à jour la matrice de transformation avec les offsets actuels
 	    updateProjectionMatrix();
@@ -563,23 +537,23 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    // === Envoi des données GPU ===
 	    // Sommets
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, vertexPoints.length * Float.BYTES, FloatBuffer.wrap(vertexPoints));
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexPoints.length * Float.BYTES, FloatBuffer.wrap(vertexPoints));
 
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexSizeBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, vertexSizes.length * Float.BYTES, FloatBuffer.wrap(vertexSizes));
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexSizes.length * Float.BYTES, FloatBuffer.wrap(vertexSizes));
 
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexColorBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, vertexColors.length * Float.BYTES, FloatBuffer.wrap(vertexColors));
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexColors.length * Float.BYTES, FloatBuffer.wrap(vertexColors));
 
 	    // Arêtes
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, edgePoints.length * Float.BYTES, FloatBuffer.wrap(edgePoints));
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgePoints.length * Float.BYTES, FloatBuffer.wrap(edgePoints));
 
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeColorBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, edgeColors.length * Float.BYTES, FloatBuffer.wrap(edgeColors));
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgeColors.length * Float.BYTES, FloatBuffer.wrap(edgeColors));
 
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeSizeBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, edgeSizes.length * Float.BYTES, FloatBuffer.wrap(edgeSizes));
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgeSizes.length * Float.BYTES, FloatBuffer.wrap(edgeSizes));
 
 	    // === Affichage des sommets ===
 	    gl.glUseProgram(pointsShaderProgram);
@@ -663,6 +637,8 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 
     /**
      * Exemple d'initialisation du graphe (à remplacer par l'interface graphique)
+	 * @see GraphData.SimilitudeMode
+	 * @see GraphData.NodeCommunity
      */
     private void testInit() {
         // Initialisation du graphe avec le fichier à charger, la méthode de similitude et la méthode de détection de communautés
@@ -695,37 +671,37 @@ public class Graph extends Application implements GLEventListener, GraphSettings
         tl1.setCycleCount(1);
         tl1.play();
 
-        Timeline tl2 = new Timeline(
-                new KeyFrame(Duration.seconds(25), e -> {
+        /*Timeline tl2 = new Timeline(
+                new KeyFrame(Duration.seconds(15), e -> {
                     setMode(GraphData.GraphMode.RUN);
                     System.out.print("Switch to " + getMode());
                     System.out.println(" - Exécution du graphe (en mouvement)");
                 })
         );
         tl2.setCycleCount(1);
-        tl2.play();
+        tl2.play();*/
 
-        Timeline tl3 = new Timeline(
+        /*Timeline tl3 = new Timeline(
                 new KeyFrame(Duration.seconds(30), e -> {
-                    setMode(GraphData.GraphMode.MOVE);
-                    System.out.print("Switch to " + getMode());
-                    System.out.println(" - Vous pouvez vous déplacer dans le graphe");
-                })
-        );
-        tl3.setCycleCount(1);
-        tl3.play();
-
-        Timeline tl4 = new Timeline(
-                new KeyFrame(Duration.seconds(40), e -> {
                     setMode(GraphData.GraphMode.SELECTION);
                     System.out.print("Switch to " + getMode());
                     System.out.println(" - Vous pouvez sélectionner et déplacer des sommets");
                 })
         );
+        tl3.setCycleCount(1);
+        tl3.play();*/
+
+        Timeline tl4 = new Timeline(
+                new KeyFrame(Duration.seconds(25), e -> {
+                    setMode(GraphData.GraphMode.MOVE);
+                    System.out.print("Switch to " + getMode());
+                    System.out.println(" - Vous pouvez vous déplacer dans le graphe");
+                })
+        );
         tl4.setCycleCount(1);
         tl4.play();
 
-        Timeline tl5 = new Timeline(
+        /*Timeline tl5 = new Timeline(
                 new KeyFrame(Duration.seconds(50), e -> {
                     setMode(GraphData.GraphMode.RUN);
                     System.out.print("Back to " + getMode());
@@ -733,7 +709,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
                 })
         );
         tl5.setCycleCount(1);
-        tl5.play();
+        tl5.play();*/
 
         /*Timeline tl6 = new Timeline(
                 new KeyFrame(Duration.seconds(55), e -> {
@@ -819,8 +795,23 @@ public class Graph extends Application implements GLEventListener, GraphSettings
             throw new RuntimeException("setScreenSize : Taille de l'écran (" + width + "x" + height + ") non valide.");
         WIDTH = width;
         HEIGHT = height;
-        //setDimension(WIDTH, HEIGHT); // TODO
+        //setDimension(WIDTH, HEIGHT); // TODO (toujours compliqué côté C)
     }
+
+	/**
+	 * Modifie la couleur de fond du graphe
+	 * @param color_r Composante rouge de la couleur
+	 * @param color_g Composante verte de la couleur
+	 * @param color_b Composante bleue de la couleur
+	 */
+	@Override
+	public void setBackgroundColor(float color_r, float color_g, float color_b) {
+		if (color_r < 0 || color_r > 1 || color_g < 0 || color_g > 1 || color_b < 0 || color_b > 1)
+			throw new RuntimeException("setBackgroundColor : Couleur (" + color_r + ", " + color_g + ", " + color_b + ") non valide.");
+		this.bg_color_r = color_r;
+		this.bg_color_g = color_g;
+		this.bg_color_b = color_b;
+	}
 
     /**
      * @param upscale Facteur d'agrandissement pour le graphe
@@ -910,16 +901,6 @@ public class Graph extends Application implements GLEventListener, GraphSettings
     }
 
     /**
-     * @return le seuil recommandé pour les anti-arêtes
-     */
-    @Override
-    public double getRecommendedAntiThreshold() {
-        if (init_metadata == null)
-            throw new RuntimeException("getRecommendedAntiThreshold : Métadonnées non initialisées. Veuillez appeler initGraph() avant.");
-        return init_metadata.getAntiThreshold();
-    }
-
-    /**
      * @return le seuil actuel pour les arêtes
      */
     @Override
@@ -928,6 +909,16 @@ public class Graph extends Application implements GLEventListener, GraphSettings
             throw new RuntimeException("getThreshold : Métadonnées non initialisées. Veuillez appeler initGraph() avant.");
         return metadata.getEdgeThreshold();
     }
+
+	/**
+	 * @return le seuil recommandé pour les anti-arêtes
+	 */
+	@Override
+	public double getRecommendedAntiThreshold() {
+		if (init_metadata == null)
+			throw new RuntimeException("getRecommendedAntiThreshold : Métadonnées non initialisées. Veuillez appeler initGraph() avant.");
+		return init_metadata.getAntiThreshold();
+	}
 
     /**
      * @return le seuil actuel pour les anti-arêtes
@@ -939,49 +930,108 @@ public class Graph extends Application implements GLEventListener, GraphSettings
         return metadata.getAntiThreshold();
     }
 
-    /**
-     * Change le seuil pour les arêtes
-     * @param threshold Nouveau seuil pour les arêtes
-     */
-    @Override
-    public void setThreshold(double threshold) {
-        // TODO
-    }
+	/**
+	 * Le seuil de stabilité indique quand le graphe doit s'arrêter (si le mouvement est inférieur au seuil et que suffisamment de temps s'est écoulé, alors le graphe s'arrête de bouger)
+	 * @param threshold Nouveau seuil à appliquer
+	 */
+	@Override
+	public void setStabilizedThreshold(double threshold) {
+		setThresholdS(threshold);
+	}
 
-    /**
-     * Change le seuil pour les anti-arêtes
-     * @param antiThreshold Nouveau seuil pour les anti-arêtes
-     */
-    @Override
-    public void setAntiThreshold(double antiThreshold) {
-        // TODO
-    }
+	/**
+	 * Le seuil d'attraction correspond à la distance minimum pour appliquer une force d'attraction entre deux points
+	 * @param threshold Seuil d'attraction entre les sommets
+	 */
+	@Override
+	public void setAttractionThreshold(double threshold) {
+		setThresholdA(threshold);
+	}
 
-    /**
-     * Affiche les sommets dont le degré est supérieur ou égal à degree
-     * @param degree Degré minimum des sommets à afficher
-     */
-    @Override
-    public void setMiniumDegree(int degree) {
-        if (degree < 0)
-            throw new RuntimeException("setMiniumDegree : Degré minimum (" + degree + ") non valide.");
-        minimumDegree.set(degree);
-    }
+	/**
+	 * @param freq Fréquence à laquelle les clusters sont mis à jour
+	 */
+	@Override
+	public void setUpdatedFrequence(int freq) {
+		setSaut(freq);
+	}
 
-    /**
-     * Modifie la couleur de fond du graphe
-     * @param color_r Composante rouge de la couleur
-     * @param color_g Composante verte de la couleur
-     * @param color_b Composante bleue de la couleur
-     */
-    @Override
-    public void setBackgroundColor(float color_r, float color_g, float color_b) {
-        if (color_r < 0 || color_r > 1 || color_g < 0 || color_g > 1 || color_b < 0 || color_b > 1)
-            throw new RuntimeException("setBackgroundColor : Couleur (" + color_r + ", " + color_g + ", " + color_b + ") non valide.");
-        this.bg_color_r = color_r;
-        this.bg_color_g = color_g;
-        this.bg_color_b = color_b;
-    }
+	/**
+	 * @param friction Friction à appliquer
+	 */
+	@Override
+	public void setNewFriction(double friction) {
+		setFriction(friction);
+	}
+
+	/**
+	 * Choisir le mode de répulsion à utiliser pour mettre à jour les positions
+	 * @param mode Mode de répulsion à utiliser
+	 * @see GraphData.RepulsionMode
+	 */
+	@Override
+	public void setRepulsionMode(GraphData.RepulsionMode mode) {
+		setModeRepulsion(getModeRepulsion(mode));
+	}
+
+	/**
+	 * @param antiedge_repulsion Force de répulsion des anti-arêtes
+	 */
+	@Override
+	public void setAntiEdgesRepulsion(double antiedge_repulsion) {
+		setAntiRepulsion(antiedge_repulsion);
+	}
+
+	/**
+	 * @param attraction_coeff Force d'attraction entre les sommets
+	 */
+	@Override
+	public void setAttractionCoefficient(double attraction_coeff) {
+		setAttractionCoeff(attraction_coeff);
+	}
+
+	/**
+	 * @param threshold Seuil de répulsion entre les sommets
+	 */
+	@Override
+	public void setRepulsionThreshold(double threshold) {
+		setSeuilRep(threshold);
+	}
+
+	/**
+	 * @param amortissement Amortissement à appliquer (facteur dictant comment la friction évolue après chaque mise à jour du graphe)
+	 */
+	@Override
+	public void setNewAmortissement(double amortissement) {
+		setAmortissement(amortissement);
+	}
+
+	/**
+	 * @param new_number_of_clusters Nombre de clusters à considérer
+	 */
+	@Override
+	public void setNbClusters(int new_number_of_clusters) {
+		SetNumberClusters(new_number_of_clusters);
+	}
+
+	/**
+	 * @return le degré minimum des sommets à afficher
+	 */
+	@Override
+	public int getMinimumDegree() {
+		return minimumDegree.get();
+	}
+
+	/**
+	 * Affiche les sommets dont le degré est supérieur ou égal à degree
+	 * @param degree Degré minimum des sommets à afficher
+	 */
+	@Override
+	public void setMiniumDegree(int degree) {
+		if (degree < 0)
+			throw new RuntimeException("setMiniumDegree : Degré minimum (" + degree + ") non valide.");
+		minimumDegree.set(degree);
+	}
 
 
 
@@ -1285,6 +1335,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
     /**
      * @param mode Mode de similitude
      * @return l'identifiant du mode de similitude
+	 * @see GraphData.SimilitudeMode
      */
     private static int getModeSimilitude(GraphData.SimilitudeMode mode) {
         int modeSimilitude = -1;
@@ -1304,6 +1355,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
     /**
      * @param community Mode de détection de communautés
      * @return l'identifiant du mode de détection de communautés
+	 * @see GraphData.NodeCommunity
      */
     private static int getModeCommunity(GraphData.NodeCommunity community) {
         int modeCommunity = -1;
@@ -1318,6 +1370,22 @@ public class Graph extends Application implements GLEventListener, GraphSettings
             throw new RuntimeException("Mode de détection de communautés non reconnu.");
         return modeCommunity;
     }
+
+	/**
+	 * @param mode Mode de répulsion
+	 * @return l'identifiant du mode de répulsion
+	 */
+	private static int getModeRepulsion(GraphData.RepulsionMode mode) {
+		int modeRepulsion = -1;
+		switch (mode) {
+			case GraphData.RepulsionMode.REPULSION_BY_DEGREE -> modeRepulsion = 0;
+			case GraphData.RepulsionMode.REPULSION_BY_EDGES -> modeRepulsion = 1;
+			case GraphData.RepulsionMode.REPULSION_BY_COMMUNITIES -> modeRepulsion = 2;
+		}
+		if (modeRepulsion == -1)
+			throw new RuntimeException("Mode de répulsion non reconnu.");
+		return modeRepulsion;
+	}
 
     
     
@@ -1428,7 +1496,9 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    }
 	}
 	
-	
+
+
+
     // -------------------------------------------------------------------------
     // Shader utilities
     // -------------------------------------------------------------------------

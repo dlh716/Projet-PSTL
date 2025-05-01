@@ -100,16 +100,63 @@ public interface GraphSettings {
     double getAntiThreshold();
 
     /**
-     * Change le seuil pour les arêtes
-     * @param threshold Nouveau seuil pour les arêtes
+     * Le seuil de stabilité indique quand le graphe doit s'arrêter (si le mouvement est inférieur au seuil et que suffisamment de temps s'est écoulé, alors le graphe s'arrête de bouger)
+     * @param threshold Nouveau seuil à appliquer
      */
-    void setThreshold(double threshold);
+    void setStabilizedThreshold(double threshold);
 
     /**
-     * Change le seuil pour les anti-arêtes
-     * @param antiThreshold Nouveau seuil pour les anti-arêtes
+     * Le seuil d'attraction correspond à la distance minimum pour appliquer une force d'attraction entre deux points
+     * @param threshold Seuil d'attraction entre les sommets
      */
-    void setAntiThreshold(double antiThreshold);
+    void setAttractionThreshold(double threshold);
+
+    /**
+     * @param freq Fréquence à laquelle les clusters sont mis à jour
+     */
+   void setUpdatedFrequence(int freq);
+
+    /**
+     * @param friction Friction à appliquer
+     */
+    void setNewFriction(double friction);
+
+    /**
+     * Choisir le mode de répulsion à utiliser pour mettre à jour les positions
+     * @param mode Mode de répulsion à utiliser
+     * @see GraphData.RepulsionMode
+     */
+    void setRepulsionMode(GraphData.RepulsionMode mode);
+
+    /**
+     * @param antiedge_repulsion Force de répulsion des anti-arêtes
+     */
+    void setAntiEdgesRepulsion(double antiedge_repulsion);
+
+    /**
+     * @param attraction_coeff Force d'attraction entre les sommets
+     */
+    void setAttractionCoefficient(double attraction_coeff);
+
+    /**
+     * @param threshold Seuil de répulsion entre les sommets
+     */
+    void setRepulsionThreshold(double threshold);
+
+    /**
+     * @param amortissement Amortissement à appliquer (facteur dictant comment la friction évolue après chaque mise à jour du graphe)
+     */
+    void setNewAmortissement(double amortissement);
+
+    /**
+     * @param new_number_of_clusters Nombre de clusters à considérer
+     */
+    void setNbClusters(int new_number_of_clusters);
+
+    /**
+     * @return le degré minimum des sommets à afficher
+     */
+    int getMinimumDegree();
 
     /**
      * Affiche les sommets dont le degré est supérieur ou égal à degree
