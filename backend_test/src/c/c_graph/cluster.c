@@ -8,6 +8,7 @@ float cluster_colors[MAX_NODES][3];
 double centers[MAX_NODES][2];
 Cluster *cluster_nodes = NULL;  // Tableau de clusters
 int n_clusters;
+int kmeans_mode = 0;
 
 double epsilon = 0.1;
 int espacement = 1;
@@ -84,15 +85,20 @@ int grid_clustering(
     int empty_counter = grid_length * grid_length;
     int* grid_contains = (int*) calloc(sizeof(int),empty_counter);
 
+    double center_width = Lx * 0.5;
+    double center_height = Ly * 0.5;
+
     double grid_width = Lx / grid_length;
     double grid_height = Ly / grid_length;
 
     for (int i = 0; i < num_points; ++i) {
         if ( vertices[i].deleted == 0 ) {
-            int grid_i = vertices[i].x / grid_width;
-            int grid_j = vertices[i].y / grid_height;
+            double x = vertices[i].x + center_width / 2 < 0 ? 0 : vertices[i].x + center_width / 2;
+            double y = vertices[i].y + center_height / 2 < 0 ? 0 : vertices[i].y + center_height / 2;
+            int grid_i = x / grid_width;
+            int grid_j = y / grid_height;
 
-            labels[i] = grid_i * grid_length + grid_j;
+            labels[i] = grid_j * grid_length + grid_i;
 
             if ( grid_contains[labels[i]] == 0 ) {
                 grid_contains[labels[i]] = 1;
@@ -100,6 +106,8 @@ int grid_clustering(
             }
         }
     }
+
+    free(grid_contains);
 
     return empty_counter > threshold;
 }
@@ -203,7 +211,10 @@ void kmeans_iteration_original(Point *points, int num_points, int num_clusters, 
             while (centers[i][1] < -Ly / 2) centers[i][1] += Ly;
             while (centers[i][1] > Ly / 2) centers[i][1] -= Ly;
         }
+        free(new_centers[i]);
     }
+
+    free(new_centers);
 }
 
 void update_clusters_original() {
@@ -240,7 +251,7 @@ void update_clusters_original() {
 void kmeans_iteration(int num_points, int num_clusters, int *labels, double centers[][2], double Lx, double Ly, double* max_diff) {
 
     // Modification pour utiliser moins de memoire et eviter un seg fault
-    int counts[MAX_NODES] = {0};
+    int* counts = (int*) malloc(sizeof(int) * num_clusters);
     double ** new_centers = (double**) malloc(sizeof(double*) * num_clusters);  // Stocker les nouveaux centres calculés
 
     for (int i = 0; i < num_clusters; ++i) {
@@ -303,12 +314,16 @@ void kmeans_iteration(int num_points, int num_clusters, int *labels, double cent
     }
 
     free(new_centers);
+    free(counts);
 }
 
 // probablement privé utilisée dans update_positions
 // Étape 2 : Forces de répulsion intra-cluster
-void repulsion_intra_clusters(Point* forces, double FMaxX, double FMaxY)
+void repulsion_intra_clusters(double(*forces)[2], double FMaxX, double FMaxY)
 {
+
+    if ( modified_graph && mode != 1 ) 
+        calculate_node_degrees();
 
     for (int cluster = 0; cluster < n_clusters; cluster++) {
         int size = cluster_nodes[cluster].size;
@@ -317,6 +332,7 @@ void repulsion_intra_clusters(Point* forces, double FMaxX, double FMaxY)
     
             Point pi = vertices[node_i];
             if ( pi.deleted == 0 ) {
+                
                 for (int j = i + 1; j < size; j++) {
                     int node_j = cluster_nodes[cluster].nodes[j];
                     Point dir;
@@ -332,25 +348,26 @@ void repulsion_intra_clusters(Point* forces, double FMaxX, double FMaxY)
                         } else if (mode == 2 && communities[i] != communities[j]) {//printf("extra repulsion %d, %d \n",i,j);
                             rep_force = 100000*repulsion_coeff*(node_degrees[i]+1)*(node_degrees[j]+1) / dist_squared;
                         } else { // mode == 0 est le mode par defaut
-                                rep_force = repulsion_coeff*(node_degrees[i]+1)*(node_degrees[j]+1) / dist_squared;
+                            rep_force = repulsion_coeff * (node_degrees[i]+1) * (node_degrees[j]+1) / dist_squared;
                         } 
                                             
-                        forces[node_i].x -= dir.x * rep_force;
-                        forces[node_i].y -= dir.y * rep_force;
-                        forces[node_j].x += dir.x * rep_force;
-                        forces[node_j].y += dir.y * rep_force;
+                        forces[node_i][0] -= dir.x * rep_force;
+                        forces[node_i][1] -= dir.y * rep_force;
+                        forces[node_j][0] += dir.x * rep_force;
+                        forces[node_j][1] += dir.y * rep_force;
                     } else {
                         double rep_force = repulsion_coeff / seuilrep;
                                             
-                        forces[node_i].x -= dir.x * rep_force;
-                        forces[node_i].y -= dir.y * rep_force;
-                        forces[node_j].x += dir.x * rep_force;
-                        forces[node_j].y += dir.y * rep_force;
+                        forces[node_i][0] -= dir.x * rep_force;
+                        forces[node_i][1] -= dir.y * rep_force;
+                        forces[node_j][0] += dir.x * rep_force;
+                        forces[node_j][1] += dir.y * rep_force;
                     }
                 }
-                    // capper les forces d'attractions
-            forces[node_i].x = fmax(fmin(forces[node_i].x, FMaxX), -FMaxX);
-            forces[node_i].y = fmax(fmin(forces[node_i].y, FMaxY), -FMaxY);
+            
+                // capper les forces d'attractions
+                forces[node_i][0] = fmax(fmin(forces[node_i][0], FMaxX), -FMaxX);
+                forces[node_i][1] = fmax(fmin(forces[node_i][1], FMaxY), -FMaxY);
         
             }
         }
@@ -363,9 +380,9 @@ void repulsion_intra_clusters(Point* forces, double FMaxX, double FMaxY)
 void update_clusters()
 {
 
-    if (iteration % (saut * (1 + 0 * espacement)) == 0) {
+    int modified = 0;
+    if (kmeans_mode != 0 && iteration % (saut * (10 + 0 * espacement)) == 0) {
         int centers_converged = 0;
-
         while (centers_converged == 0) {
             // the biggest difference between the former centers and the new ones
             double max_movement = 0;
@@ -374,8 +391,14 @@ void update_clusters()
 
             centers_converged = max_movement <= epsilon;
         }
-        clear_clusters();
+        modified = 1;
+    } else {
+        grid_clustering(num_nodes, n_clusters, clusters, Lx, Ly, 10);
+        modified = 1;
+    }
 
+    if ( modified ) {
+        clear_clusters();
         for (int i = 0; i < num_nodes; i++) {
             int best_cluster = clusters[i];
             if ( vertices[i].deleted == 0 ) {
@@ -383,7 +406,6 @@ void update_clusters()
             }
         }
     }
-
 }
 
 void clear_clusters() {
@@ -439,10 +461,10 @@ void assign_cluster_colors() {
 }
 
 void init_clusters(int num_clusters) {
-    int estimated_capacity = (num_nodes / num_clusters) + 1;
-    cluster_nodes = (Cluster *)malloc(num_clusters * sizeof(Cluster));
+    int estimated_capacity = (live_nodes / num_clusters) + 1;
+    cluster_nodes = (Cluster*) malloc(num_clusters * sizeof(Cluster));
     for (int i = 0; i < num_clusters; i++) {
-        cluster_nodes[i].nodes = (int *)malloc(estimated_capacity * sizeof(int));
+        cluster_nodes[i].nodes = (int*) malloc(estimated_capacity * sizeof(int));
         cluster_nodes[i].size = 0;
         cluster_nodes[i].capacity = estimated_capacity;
     }

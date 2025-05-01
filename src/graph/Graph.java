@@ -50,7 +50,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 
     // Méthodes JNI
     private native double[][] startsProgram(String filename);
-	private native Metadata computeThreshold(int modeSimilitude);
+	private native Metadata computeThreshold(int modeSimilitude, int edge_factor);
 	private native Metadata initiliazeGraph(int modeCommunity, double threshold, double anti_threshold);
 
 	/** the calculation depends on how big the window is
@@ -76,6 +76,27 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	private native void setAmortissement(double amortissement);
 	private native void SetNumberClusters(int new_number_of_clusters);
 	private native void freeAllocatedMemory();
+    /**
+     * ignores node for the algorithm
+     * @param index index of node to delete
+     */
+    public native void setdeleteNode(int index);
+    /**
+     * restores deleted node for the algorithm
+     * @param index index of node to restore
+     */
+    public native void restoreNode(int index);
+    /**
+     * set cluster mode
+     * @param md 0 == grid_clustering && 1 == 
+     */
+    public native void setKmeansMode(boolean md);
+    /**
+     * 
+     * @return histogram
+     */
+    public native int[] getHistogram();
+    public native Metadata initializeDot(String filepath, int md);
 
 
 
@@ -760,7 +781,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
             throw new RuntimeException("initGraph : Mode de similitude non spécifié.");
         int modeSimilitude = getModeSimilitude(mode);
 
-        init_metadata = computeThreshold(modeSimilitude);
+        init_metadata = computeThreshold(modeSimilitude, 50);
         if (init_metadata == null)
             throw new RuntimeException("initGraph : Une erreur est survenue lors du calcul des seuils.");
 
@@ -771,8 +792,8 @@ public class Graph extends Application implements GLEventListener, GraphSettings
         System.out.println("Seuil recommandé pour les anti-arêtes : " + recommendedAntiThreshold);
 
         // Valeurs imposées pour le moment (à modifier)
-        recommendedThreshold = 0.966;
-        recommendedAntiThreshold = 0.6;
+        //recommendedThreshold = 0.966;
+        //recommendedAntiThreshold = 0.6;
 
         // Déterminer le mode de détection de communautés à utiliser
         if (community == null)

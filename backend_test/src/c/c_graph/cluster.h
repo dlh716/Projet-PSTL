@@ -23,7 +23,7 @@ void kmeans_iteration(int num_points, int num_clusters, int *labels, double cent
 // version originale de la fonction
 void update_clusters_original();
 void update_clusters();
-void repulsion_intra_clusters(Point* forces, double FMaxX, double FMaxY);
+void repulsion_intra_clusters(double(*forces)[2], double FMaxX, double FMaxY);
 
 // Fonction pour initialiser les centres de clusters de manière aléatoire
 void initialize_centers();

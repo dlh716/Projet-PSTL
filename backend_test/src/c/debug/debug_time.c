@@ -36,8 +36,6 @@ void chr_pause(Chrono chr)
             char buf[128];
             // last_start, time since last start, time unpaused since call to start_clock
             sprintf(buf, "%9ld, %9ld, %9ld\n", chr->start, time_start, chr->duration);
-            //printf("%s", buf);
-            //printf("%ld\n", write(chr->fd, buf, strlen(buf) * sizeof(char)));
             write(chr->fd, buf, strlen(buf) * sizeof(char));
         }
     }
@@ -48,7 +46,6 @@ void chr_restart(Chrono chr)
     if ( chr->isPaused ){
         if ( chr->fd != -1 ){
             char buf[128];
-            //printf("mark\n");
             //sprintf(buf, "%9ld, 0, %9ld\n", chr->start, chr->duration);
             //write(chr->fd, buf, strlen(buf) * sizeof(char));
         }

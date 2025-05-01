@@ -5,7 +5,7 @@
 #include "c_graph/graph.h"
 
 #define MAX_NODES 100000
-#define MAX_EDGES 150000
+#define MAX_EDGES 1000000
 
 extern Edge edges[MAX_EDGES]; // Pour les arêtes normales
 extern char *node_names[MAX_NODES]; // Array to store node names as strings      
@@ -18,8 +18,9 @@ extern _Atomic int num_edges;
 extern _Atomic int num_antiedges;
 extern Edge antiedges[MAX_EDGES];  // Pour les anti-arêtes
 
-extern int num_nodes;
+extern int num_nodes, live_nodes;
 extern double Lx, Ly;
+extern short modified_graph;
 
 extern double friction;
 // TODO passer en argument a calculate_similitude dans la version de base
@@ -39,6 +40,7 @@ extern float cluster_colors[MAX_NODES][3];
 extern double centers[MAX_NODES][2];
 extern Cluster *cluster_nodes;  // Tableau de clusters
 extern int n_clusters;
+extern int kmeans_mode;
 
 extern double epsilon;
 

@@ -62,12 +62,12 @@ JNIEXPORT jboolean JNICALL Java_graph_Graph_updatePositions
    double PasMaxX = Lx / 10.;
    double PasMaxY = Ly / 10.;
 
-   static Point forces[MAX_NODES] = {0};
+   static double forces[MAX_NODES][2] = { {0, 0} };
 
    if ( pause_updates == 0 ){
-        repulsion_edges(forces);
+        parallel_repulsion_edges(forces);
         repulsion_intra_clusters(forces, FMaxX, FMaxY);
-        repulsion_anti_edges(forces);
+        parallel_repulsion_anti_edges(forces);
         
         Max_movementOld = Max_movement;
         Max_movement = update_position_forces(forces, PasMaxX, PasMaxY, Max_movement);
@@ -93,16 +93,34 @@ JNIEXPORT jboolean JNICALL Java_graph_Graph_updatePositions
    return 1;
 }
 
+void update_forces(Point* forces, double FMaxX, double FMaxY) {
+
+  struct barrier bar;
+  new_barrier(&bar, 3);
+
+  destroy_barrier(&bar);
+}
+
 JNIEXPORT void JNICALL Java_graph_Graph_testUpdatePosition
   (JNIEnv * env, jobject obj, jint iteration_number)
 {
 
 
-  static Point forces[MAX_NODES] = {0};  
+  static double forces[MAX_NODES][2] = {0};  
 
   iteration = 0;
 
   #ifdef _DEBUG_
+    struct chrono chrono_repulsionE;
+    chr_assign_log(&chrono_repulsionE, "repE.csv");
+    chr_start_clock(&chrono_repulsionE);
+    chr_pause(&chrono_repulsionE);
+
+    struct chrono chrono_repulsionAE;
+    chr_assign_log(&chrono_repulsionAE, "repAE.csv");
+    chr_start_clock(&chrono_repulsionAE);
+    chr_pause(&chrono_repulsionAE);
+
     chr_assign_log(&chrono_means, "Kmeans.csv");
     chr_start_clock(&chrono_means);
     chr_pause(&chrono_means);
@@ -121,10 +139,26 @@ JNIEXPORT void JNICALL Java_graph_Graph_testUpdatePosition
     double PasMaxX = Lx / 10.;
     double PasMaxY = Ly / 10.;
 
+    #ifdef _DEBUG_
+      chr_restart(&chrono_repulsionE);
+      parallel_repulsion_edges(forces);
+      chr_pause(&chrono_repulsionE);
+    #else
+      parallel_repulsion_edges(forces);
+    #endif
 
-    repulsion_edges(forces);
     repulsion_intra_clusters(forces, FMaxX, FMaxY);
-    repulsion_anti_edges(forces);
+    #ifdef _DEBUG_
+      chr_restart(&chrono_repulsionAE);
+      parallel_repulsion_anti_edges(forces);
+      chr_pause(&chrono_repulsionAE);
+    #else
+      parallel_repulsion_anti_edges(forces);
+    #endif
+
+
+
+
     Max_movementOld = Max_movement;
     Max_movement = update_position_forces(forces, PasMaxX, PasMaxY, Max_movement);
     
@@ -147,6 +181,12 @@ JNIEXPORT void JNICALL Java_graph_Graph_testUpdatePosition
   }
 
   #ifdef _DEBUG_
+    chr_stop(&chrono_repulsionE);
+    chr_close_log(&chrono_repulsionE);
+
+    chr_stop(&chrono_repulsionAE);
+    chr_close_log(&chrono_repulsionAE);
+
     chr_stop(&chrono_means);
     chr_close_log(&chrono_means);
   #endif
@@ -252,14 +292,13 @@ JNIEXPORT jobject JNICALL Java_graph_Graph_startsProgram
     }
 
     return result;
-
 }
 
 JNIEXPORT jobject JNICALL Java_graph_Graph_computeThreshold
-  (JNIEnv * env, jobject obj, jint modeSimilitude)
+  (JNIEnv * env, jobject obj, jint modeSimilitude, jint edge_factor)
 {
 
-    InitPool(&pool, 1000, 6);
+    InitPool(&pool, num_nodes / 4 + 1, 4);
     similarity_matrix = (double**) malloc(num_rows * sizeof(double*));
     for (int i = 0; i < num_rows; i++) {
       similarity_matrix[i] = (double*) malloc(num_rows * sizeof(double));
@@ -269,6 +308,7 @@ JNIEXPORT jobject JNICALL Java_graph_Graph_computeThreshold
     }
 
     num_nodes = num_rows;
+    live_nodes = num_nodes;
 
     double threshold, antiseuil;
     mode_similitude = modeSimilitude;
@@ -288,7 +328,7 @@ JNIEXPORT jobject JNICALL Java_graph_Graph_computeThreshold
         double means_similitude = calculate_mean_similitude_parallel(modeSimilitude, similarities);
     #endif
 
-    calculate_threshold(modeSimilitude, 10*num_nodes, &threshold, &antiseuil, similarities);
+    calculate_threshold(modeSimilitude, edge_factor * num_nodes, &threshold, &antiseuil, similarities);
 
     printf("Seuil recommandé: %lf, %lf\n", threshold, antiseuil);
     printf("%lf, %d", means_similitude, num_rows);
@@ -313,7 +353,7 @@ JNIEXPORT jobject JNICALL Java_graph_Graph_initializeDot
   parse_dot_file(str);
   compact_label();
 
-  modeA=0;
+  modeA = 0;
   if (md == 0) {
       num_communities = louvain_method();
   } else if (md == 1) {
@@ -374,9 +414,6 @@ JNIEXPORT jobject JNICALL Java_graph_Graph_initiliazeGraph
       free(similarity_matrix[i]);
     }
     free(similarity_matrix);
-
-    printf("\n\nHELP\n\n");
-
     modeA=0;
     if (md == 0) {
         num_communities = louvain_method();
@@ -402,24 +439,13 @@ JNIEXPORT jobject JNICALL Java_graph_Graph_initiliazeGraph
     }
     initialize_community_colors();
 
-    printf("\n\nHELP\n\n");
-
-    #ifdef _DEBUG_
-        printf("Fin Calcul Communaute");
-    #endif
-
     compute_average_vectors();
-
-    #ifdef _DEBUG_
-        printf("Vecteurs moyens fini \n");
-    #endif
 
     for (int i = 0; i < num_nodes; i++) {
         random_point_in_center(i);
         velocities[i].x = velocities[i].y = 0.0;
     }
-    //n_clusters = (int)sqrt(num_nodes);
-    n_clusters = 150;
+    n_clusters = (int)sqrt(num_nodes);
     init_clusters(n_clusters);
     initialize_centers();
     assign_cluster_colors();
@@ -429,10 +455,7 @@ JNIEXPORT jobject JNICALL Java_graph_Graph_initiliazeGraph
     jmethodID constructor = (*env)->GetMethodID(env, res_class, "<init>", "(IDDIII)V");
     jobject res = (*env)->NewObject(env, res_class, constructor, num_nodes, thresh, anti_thresh, num_edges, num_antiedges, n_clusters);
 
-    printf("\n\nHelp\n\n");
-
     return res;   
-
 }
 
 JNIEXPORT void JNICALL Java_graph_Graph_freeAllocatedMemory
@@ -500,20 +523,20 @@ JNIEXPORT void JNICALL Java_graph_Graph_setThresholdA
 JNIEXPORT void JNICALL Java_graph_Graph_setSeuilRep
   (JNIEnv * env, jobject obj, jdouble seuil)
 {
-    seuilrep = seuil;
+  seuilrep = seuil;
 }
 
 JNIEXPORT void JNICALL Java_graph_Graph_setDimension
   (JNIEnv * env, jobject obj, jdouble width, jdouble height)
 {
-    Lx = width;
-    Ly = height;
+  Lx = width;
+  Ly = height;
 }
 
 JNIEXPORT void JNICALL Java_graph_Graph_setAmortissement
   (JNIEnv * env, jobject obj, jdouble amort)
 {
-    amortissement = amort;
+  amortissement = amort;
 }
 
 JNIEXPORT void JNICALL Java_graph_Graph_setNodePosition
@@ -526,10 +549,10 @@ JNIEXPORT void JNICALL Java_graph_Graph_setNodePosition
 JNIEXPORT void JNICALL Java_graph_Graph_unpauseGraph
   (JNIEnv * env, jobject obj)
 {
-    if ( pause_updates == 1 ) {
-        iteration = 0;
-        pause_updates = 0;
-    }
+  if ( pause_updates == 1 ) {
+      iteration = 0;
+      pause_updates = 0;
+  }
 }
 
 JNIEXPORT void JNICALL Java_graph_Graph_SetNumberClusters
@@ -546,13 +569,41 @@ JNIEXPORT void JNICALL Java_graph_Graph_SetNumberClusters
 }
 
 JNIEXPORT void JNICALL Java_graph_Graph_deleteNode
-  (JNIEnv * env, jobject obj, int index)
+  (JNIEnv * env, jobject obj, jint index)
 {
-  vertices[index].deleted = 1;
+
+  if ( vertices[index].deleted == 0 ) {
+    vertices[index].deleted = 1;
+    modified_graph = 1;
+    --live_nodes;
+  }
+
 }
 
 JNIEXPORT void JNICALL Java_graph_Graph_restoreNode
-(JNIEnv * env, jobject obj, int index)
+(JNIEnv * env, jobject obj, jint index)
 {
-  vertices[index].deleted = 0;
+
+  if ( vertices[index].deleted == 1 ) {
+    vertices[index].deleted = 0;
+    modified_graph = 1;
+    ++live_nodes;
+  }
+
+}
+
+JNIEXPORT void JNICALL Java_graph_Graph_setKmeansMode
+  (JNIEnv * env, jobject obj, jboolean b)
+{
+  kmeans_mode = b;
+}
+
+JNIEXPORT jobject JNICALL Java_graph_Graph_getHistogram
+  (JNIEnv * env, jobject obj)
+{
+  jintArray result = (*env)->NewIntArray(env, NUM_BINS);
+
+  (*env)->SetIntArrayRegion(env, result, 0, NUM_BINS, global_histogram);
+
+  return result;
 }
