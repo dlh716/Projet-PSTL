@@ -8,11 +8,12 @@ import java.util.ArrayList;
 public class Vertex {
 
     public static int upscale = 8;
-    public static double initial_node_size = 2;
-    public static double degree_scale_factor = 0.3;
+    public static double initial_node_size = 1;
+    public static double degree_scale_factor = 0;
 
     private int id;
     private double x, y, diameter;
+    private boolean isDeleted = false;
     private final ArrayList<Edge> edges = new ArrayList<>();
     private Community community;
 
@@ -64,6 +65,20 @@ public class Vertex {
     public void updatePosition(double x, double y) {
         this.x = x;
         this.y = y;
+    }
+
+    /**
+     * Marque le sommet comme supprimé
+     */
+    public void delete() {
+        isDeleted = true;
+        diameter = 0;
+    }
+    /**
+     * @return true si le sommet a été supprimé, false sinon
+     */
+    public boolean isDeleted() {
+        return isDeleted;
     }
 
     /**

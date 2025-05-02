@@ -5,7 +5,7 @@ package graph;
  */
 public class Edge {
 
-    public static double initial_edge_weight = 0.3;
+    public static double initial_edge_weight = 1;
 
     private final Vertex start, end;
 
@@ -13,7 +13,9 @@ public class Edge {
     private final float color_g;
     private final float color_b;
 
-    private final double weight;
+    private double weight;
+
+    private boolean isDeleted = false;
 
 
     /**
@@ -65,6 +67,20 @@ public class Edge {
      */
     public double getWeight() {
         return weight;
+    }
+
+    /**
+     * Marque l'arête comme supprimée
+     */
+    public void delete() {
+        isDeleted = true;
+        weight = 0;
+    }
+    /**
+     * @return true si l'arête a été supprimée, false sinon
+     */
+    public boolean isDeleted() {
+        return isDeleted;
     }
 
 

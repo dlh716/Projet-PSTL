@@ -20,7 +20,15 @@ public interface GraphSettings {
      * @see GraphData.SimilitudeMode
      * @see GraphData.NodeCommunity
      */
-    double[][] initGraph(String path, GraphData.SimilitudeMode mode, GraphData.NodeCommunity community);
+    double[][] initGraphCsv(String path, GraphData.SimilitudeMode mode, GraphData.NodeCommunity community);
+
+    /**
+     * Initialise le graphe avec les données du fichier .dot
+     * @param path Chemin du fichier .dot à charger
+     * @param community Mode de détection de communautés à utiliser
+     * @see GraphData.NodeCommunity
+     */
+    void initGraphDot(String path, GraphData.NodeCommunity community);
 
     /**
      * Initialise la taille de l'écran du graphe
@@ -154,6 +162,16 @@ public interface GraphSettings {
     void setNbClusters(int new_number_of_clusters);
 
     /**
+     * @param isEnabled <code>true</code> pour utiliser les Kmeans, <code>false</code> pour utiliser le grid clustering
+     */
+    void enableKmeans(boolean isEnabled);
+
+    /**
+     * @return l'histogramme // TODO
+     */
+    int[] getHistogramme();
+
+    /**
      * @return le degré minimum des sommets à afficher
      */
     int getMinimumDegree();
@@ -163,6 +181,11 @@ public interface GraphSettings {
      * @param degree Degré minimum des sommets à afficher
      */
     void setMiniumDegree(int degree);
+
+    /**
+     * @param vertex_id Identifiant du sommet à supprimer
+     */
+    void removeVertex(int vertex_id);
 
 
 
