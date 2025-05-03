@@ -93,14 +93,6 @@ JNIEXPORT jboolean JNICALL Java_graph_Graph_updatePositions
    return 1;
 }
 
-void update_forces(Point* forces, double FMaxX, double FMaxY) {
-
-  struct barrier bar;
-  new_barrier(&bar, 3);
-
-  destroy_barrier(&bar);
-}
-
 JNIEXPORT void JNICALL Java_graph_Graph_testUpdatePosition
   (JNIEnv * env, jobject obj, jint iteration_number)
 {
@@ -396,10 +388,6 @@ JNIEXPORT jobject JNICALL Java_graph_Graph_initializeDot
   (*env)->ReleaseStringUTFChars(env, filepath, str); 
 
   live_nodes = num_nodes;
-  printf("%d %d\n", num_nodes, num_edges);
-  for (int i = 0; i < num_edges; ++i) {
-    printf("%d -- %d\n", edges[i].node1, edges[i].node2);
-  }
   return res;
 }
 
@@ -471,7 +459,6 @@ JNIEXPORT jobject JNICALL Java_graph_Graph_initiliazeGraph
 JNIEXPORT void JNICALL Java_graph_Graph_freeAllocatedMemory
   (JNIEnv * env, jobject obj)
 {
-  printf("END");
   // Libérer la mémoire allouée pour les voisins
   for (int i = 0; i < num_nodes; i++) {
   	Neighbor* neighbor = adjacency_list[i].head;
@@ -482,11 +469,19 @@ JNIEXPORT void JNICALL Java_graph_Graph_freeAllocatedMemory
       }
   }
   free_clusters();
-
   freeNodeNames();
-
   FreePool(&pool);
+}
 
+JNIEXPORT void JNICALL Java_graph_Graph_freeProgramMemory
+  (JNIEnv * env, jobject obj)
+{
+  Java_graph_Graph_freeAllocatedMemory(env, obj);
+  for (int i = 0; i < num_rows; ++i) {
+    free(data[i]);
+  }
+  free(data);
+  data = NULL;
 }
 
 JNIEXPORT void JNICALL Java_graph_Graph_setSaut
