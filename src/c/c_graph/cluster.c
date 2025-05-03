@@ -392,7 +392,7 @@ void update_clusters()
             centers_converged = max_movement <= epsilon;
         }
         modified = 1;
-    } else {
+    } else if ( kmeans_mode == 0 ) {
         grid_clustering(num_nodes, n_clusters, clusters, Lx, Ly, 10);
         modified = 1;
     }

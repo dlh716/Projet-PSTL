@@ -6,7 +6,7 @@ double **data = NULL;
 int num_rows = 0, num_columns = 0;
 char delimiter[1] = "\0";
 int S[MAX_NODES]={0};
-char *node_names[MAX_NODES];
+char **node_names = NULL;
 
 short str_is_number(char* line)
 {
@@ -174,6 +174,15 @@ void lireColonneCSV(int *S,int *nbValeurs) {
     fclose(fichier);
 }
 
+/**
+ * We use this to store the name and the index of the node
+ * in the vertices array
+ */
+struct HashPair {
+    int index;
+    char* label;
+};
+
 void split_str(char * line, size_t size, char* delimiters, int nb_delimiter) {
     
     for (int i = 0; i < size; ++i) {
@@ -216,18 +225,27 @@ char* next_str(char** line, size_t* s) {
     return res;
 }
 
-char* find_parameter(char** line, const char* parameter, size_t* size) {
+void find_parameters
+    (char** line, size_t* size, double* weight, char** node_name) 
+{
 
     while (*size > 0) {
         char* next = next_str(line, size);
 
-        if ( *size > 0 && strcmp(next, parameter) == 0 ) {
-            printf("parameter: %s %ld\n", next, *size);
-            return next_str(line, size);
+        if ( weight != NULL && *size > 0 && strcmp(next, "weight") == 0 ) {
+            char* next = next_str(line, size);
+            if ( next != NULL ) {
+                sscanf(next, "%lf", weight);
+                free(next);
+            }
+        } else if ( node_name != NULL && *size > 0 && strcmp(next, "label") == 0 ) {
+            char* next = next_str(line, size);
+            if ( next != NULL ) {
+                *node_name = next;
+            }
         }
     }
     
-    return NULL;
 }
 
 int hash_string(char* label) {
@@ -241,144 +259,431 @@ int hash_string(char* label) {
     return cpt;
 }
 
-int put_node_names(int index, char *label) {
-
-    index = index % MAX_NODES;
-    int cpt = 0;
-    while ( node_names[index] != NULL ) {
-        if ( strcmp(node_names[index], label) == 0 ) {
-            free(label);
-            return index;
+int map_put(struct HashPair** map, size_t* capacity, char* key, int size_key) {
+    
+    if ( *capacity <= num_nodes ) {
+        size_t new_capacity = 2 * *capacity;
+        struct HashPair* new_map = (struct HashPair*) malloc(sizeof(struct HashPair) * new_capacity);
+        for (int i = 0; i < new_capacity; ++i) {
+            new_map[i].label = NULL;
+            new_map[i].index = -1;            
         }
+        for (int i = 0; i < *capacity; ++i) {
+            int new_index = hash_string((*map)[i].label) % new_capacity;
+            while( new_map[new_index].index != -1 ) {
+                new_index = (new_index + 1) % *capacity;
+            }
+            new_map[new_index].label = (*map)[i].label;
+            new_map[new_index].index = (*map)[i].index;
+        }
+        node_names = (char**) realloc(node_names, sizeof(char*) * new_capacity);
+        free(*map);
+        *map = new_map;
+        *capacity = new_capacity;
+    }
 
-        index = (index + 1) % MAX_NODES;
+    int ind = hash_string(key) % *capacity;
 
-        if ( ++cpt == MAX_NODES ) {
-            free(label);
-            return -1;
+    while( (*map)[ind].index != -1 && strcmp(key, (*map)[ind].label) != 0 ) {
+        ind = (ind + 1) % *capacity;
+    }
+
+    if ( (*map)[ind].index == -1 ) {
+        (*map)[ind].index = num_nodes++;
+        (*map)[ind].label = (char*) malloc(sizeof(char) * (size_key + 1));
+        strncpy((*map)[ind].label, key, size_key * sizeof(char));
+        (*map)[ind].label[size_key] = '\0';
+        printf("LABEL: %d %s\n", (*map)[ind].index, (*map)[ind].label);
+    }
+    return (*map)[ind].index;
+}
+
+int belongs(char* str, const char** keywords, size_t size) {
+    for (int i = 0; i < size; ++i) {
+        if ( strcmp(str, keywords[i]) == 0 ) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int isKeyword(char* str) {
+    const char* keywords[] = {
+        "digraph", "strict", "graph", "subgraph",
+        "node", "edge", "nodesep", "ranksep", "margin" 
+    };
+    size_t nb_keywords = 9;
+    return belongs(str, keywords, nb_keywords);
+}
+
+int isCompass(char* str) {
+    const char* compass[] = {
+        "n", "ne", "nw", "s", "se", "sw", "e", "w", "c", "_"
+    };
+    size_t nb_compass = 10;
+    return belongs(str, compass, nb_compass);
+}
+
+int isDelimiter(char c) {
+    const char delimiters[] = {
+        ' ', '[', ']', '{', '}', '=', ';', ',', ':', '"', '-', '>', '\n', '\r'
+    };
+    size_t nb_delimiter = 14;
+    for (int i = 0; i < nb_delimiter; ++i) {
+        if ( delimiters[i] == c ) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int isHtmlString(const char *s, size_t size) {
+    return size >= 2 && s[0] == '<' && s[size-1] == '>';
+}
+
+int isQuoteString(const char* s, size_t size) {
+
+    if ( size < 2 && s[0] != '"' && s[size-1] != '"' ) {
+        return 0;
+    }
+
+    for (int i = 0; i < size - 1; ++i) {
+        if ( s[i] == '\\' && s[i+1] == '"' ) {
+            ++i;
+        } else if ( s[i] == '"' ) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int isAlpha(const char* s, size_t size) {
+    if ( s[0] == '_' && isdigit(s[0]) )
+        return 0;
+
+    for (int i = 0; i < size; ++i) {
+        if ( ! isalnum(s[i]) && (200 > s[i] || s[i] > 255) && s[i] != '_' )
+            return 0;
+    }
+    return 1;
+}
+
+/**
+ * checks if s respects the Identifier format of dot files
+ * s should be null terminated
+ */
+int isId(char *s, size_t size) {
+    return 
+    isHtmlString(s, size) 
+    || str_is_number(s)
+    || isQuoteString(s, size)
+    || isAlpha(s, size);
+}
+
+int isParameter(char* s) {
+    const char* parameters[] = {
+        "weight", "label"
+    };
+    if ( strcmp(s, parameters[0]) == 0 )
+        return 1;
+    else if ( strcmp(s, parameters[1]) == 0 ) 
+        return 2;
+    return 0;
+}
+
+int next_token(FILE* file, char * buffer, size_t* size, int inQuotes) {
+
+    int c;
+    *size = 0;
+    while ( (c = fgetc(file)) != EOF  ) {
+        if ( (inQuotes && (c != '"' || (*size > 0 && buffer[*size-1] == '\\')) ) 
+        || ! isDelimiter(c) ) {
+            buffer[*size] = c;
+            ++*size;
+       } else {
+            break;
         }
     }
 
-    node_names[index] = label;
-    ++num_nodes;
+    buffer[*size] = '\0';
 
-    return index;
+    return c;
 }
 
-void parse_dot_line(char * ptr, size_t size) {
-
-    int node1 = -1, node2;
-    double weight = 1.0;
-
-    if ( strstr(ptr, "->") || strstr(ptr, "--") ) {
-        char delimiters[5] = {' ', '[', ']', '=', ';'};
-
-        split_str(ptr, size, delimiters, 5);
-            
-        // reading the first node label
-        char* next = next_str(&ptr, &size);
-        if ( next != NULL )
-            node1 = put_node_names(hash_string(next), next);
-        if ( node1 == -1 ) { 
-            fprintf(stderr, "Warning: Maximum number of nodes reached\n");
-            return ; 
-        }
-            
-        // we can ignore it as it should be either "->" or "--"
-        next = next_str(&ptr, &size);
-        free(next); 
+struct vect {
+    int * content;
+    int capacity, size;
+};
+typedef struct vect* Vect;
 
 
-        next = next_str(&ptr, &size);
-        if ( next != NULL )
-            node2 = put_node_names(hash_string(next), next);
-        if ( node2 == -1 ) { 
-            fprintf(stderr, "Warning: Maximum number of nodes reached\n");
-            return ; 
-        }
 
-        next = find_parameter(&ptr, "weight", &size);
-        if ( next != NULL ) {
-            sscanf(next, "%lf", &weight);
-            free(next);
-        }
-        
-        if ( num_edges < MAX_EDGES ) {
-            edges[num_edges].node1 = node1;
-            edges[num_edges].node2 = node2;
-            edges[num_edges].weight = weight;
+void add_elem_list(
+    Vect nodes,
+    int elem)
+{
+    if ( nodes->size >= nodes->capacity ) {
+        nodes->content = (int*) realloc(nodes->content, nodes->capacity * sizeof(int) * 2);
+        nodes->capacity *= 2;
+    } 
+    (nodes->content)[nodes->size] = elem;
+    ++nodes->size;
+}
 
+int add_new_edge(
+    Vect nodes,
+    Vect tmp) 
+{
+    if ( tmp ) {
+        for (int i = 0; i < tmp->size; ++i) {
+            if ( num_edges >= MAX_EDGES ) return -1;
+            edges[num_edges].node1 = tmp->content[i];
+            edges[num_edges].node2 = nodes->content[nodes->size-1];
             ++num_edges;
-        } else {
-            fprintf(stderr, "Warning: Number of edges exceeds MAX_EDGES\n");
-            return ;
         }
-            
+    } else if ( num_edges < MAX_EDGES ){
+        edges[num_edges].node1 = (nodes->content)[nodes->size-2];
+        edges[num_edges].node2 = (nodes->content)[nodes->size-1];
+        ++num_edges;
+    } else {
+        return -1;
+    }
+
+    return 0;
+}
+
+struct vect newVect(int capacity) {
+    struct vect res;
+    res.capacity = capacity;
+    res.content = (int*) malloc(sizeof(int) * capacity);
+    res.size = 0;
+    return res;
+} 
+
+void freeVect(Vect v) {
+
+    if ( v != NULL ) {
+        if ( v->content != NULL ) {
+            free(v->content);
+        }
+        free(v);
     }
 
 }
 
-void parse_dot_file(const char *filename) {
-    FILE *file = fopen(filename, "r");
-    printf("%s\n", filename);
-    if (file == NULL) {
-        perror("Error opening file");
-        exit(1);
-    }
+void parse_attr(FILE *file, char* buffer, double* weight, char** label) {
 
-    for (int i = 0; i < MAX_NODES; ++i){
-        node_names[i] = NULL;
-    }
-
-    char* line = NULL;
     size_t size = 0;
+    char c = next_token(file, buffer, &size, 0);
+    while ( c != EOF && c != ']') {
+        int id = isParameter(buffer);
+        printf("ATTR: %s\n", buffer);
+        if ( id ) {
+            c = next_token(file, buffer, &size, 0);
+            while ( size == 0 && c != '"') {
+                c = next_token(file, buffer, &size, 0);
+            }
 
-    while ( getline(&line, &size, file) != -1 ) {
-        parse_dot_line(line, size);
-        free(line);
-        line = NULL;
-    }
-
-    printf("FIN: %d", num_nodes);
-    fflush(NULL);
-
-    fclose(file);
-}
-
-void replace_edge_index(int index, int new_id) {
-
-    for (int i = 0; i < num_edges; ++i) {
-        if ( edges[i].node1 == index ) {
-            edges[i].node1 = new_id;
-        } 
-        if ( edges[i].node2 == index ) {
-            edges[i].node2 = new_id;
-        }
-    }
-
-}
-
-void compact_label() {
-
-    int cpt = 0;
-    for (int i = 0; i < MAX_NODES && cpt < num_nodes; ++i) {
-
-        if ( node_names[i] == NULL ) {
-
-            int flag = 1;
-            for (int j = i + 1; flag && j < MAX_NODES; ++j) {
-                if ( node_names[j] != NULL ) {
-                    node_names[i] = node_names[j];
-                    node_names[j] = NULL;
-                    replace_edge_index(j, i);
-                    flag = 0;
+            if ( id == 1 ) {
+                *weight = atof(buffer);
+            } else {
+                if ( c == '"' ) {
+                    c = next_token(file, buffer, &size, 1);
                 }
+
+                *label = (char*) malloc(sizeof(char) * (size + 1));
+                (*label)[size] = '\0';
+                for(int i = 0; i < size; ++i) {
+                    (*label)[i] = buffer[i];
+                }  
             }
 
         }
-
-        cpt += 1;
-
+        c = next_token(file, buffer, &size, 0);
     }
 
+}
+
+Vect parse_stmt_list(
+    FILE *file, 
+    char* buffer, 
+    struct HashPair** map, 
+    size_t* capacity) {
+
+    size_t size = 0;
+    int flag = 1;
+    int side_edge = 0;
+    int ignore = 0;
+
+    struct vect node_list1 = newVect(4);
+    Vect node_list_tmp1 = NULL;
+    Vect node_list_tmp2 = NULL;
+
+    int last_edge = num_edges;
+
+    int edge_overflow = 0;
+
+    while ( flag ) {
+        int c = next_token(file, buffer, &size, 0);
+        if ( size > 0 && ! isKeyword(buffer) && isId(buffer, size) && ! isCompass(buffer) ) {
+
+            if ( ! ignore ) {
+                int index = map_put(map, capacity, buffer, size);
+                
+                if ( ! side_edge ) {
+                    for(int i = 0; node_list_tmp1 && i < node_list_tmp1->size; ++i) {
+                        add_elem_list(&node_list1, node_list_tmp1->content[i]);
+                    }
+                    freeVect(node_list_tmp1);
+                    node_list_tmp1 = NULL;
+                }
+
+                add_elem_list(&node_list1, index);
+                last_edge = num_edges;
+
+                if ( side_edge ) {
+                    edge_overflow |= add_new_edge(&node_list1, node_list_tmp1);
+                    freeVect(node_list_tmp1);
+                    node_list_tmp1 = NULL;
+                }
+                side_edge = 0;
+            } else ignore = 0;
+        }
+
+        switch (c) {
+        case '{':
+            node_list_tmp2 = parse_stmt_list(file, buffer, map, capacity);
+            if ( side_edge ) {
+                last_edge = num_edges; 
+                if ( node_list_tmp1 ) {
+                    for (int i = 0; ! edge_overflow && i < node_list_tmp1->size; ++i) {
+                        for (int j = 0; j < node_list_tmp2->size; ++j) {
+                            if ( num_edges >= MAX_EDGES ) {
+                                edge_overflow = 1;
+                                break;
+                            }
+                            edges[num_edges].node1 = node_list_tmp1->content[i];
+                            edges[num_edges].node2 = node_list_tmp2->content[j];
+                            ++num_edges;
+                        }
+                    }
+
+                } else {
+                    for (int i = 0; ! edge_overflow && i < node_list_tmp2->size; ++i) {
+                        if ( num_edges >= MAX_EDGES ) {
+                            edge_overflow = 1;
+                        } else {
+                            int last_list1 = node_list1.size-1;
+                            edges[num_edges].node1 = node_list1.content[last_list1];
+                            edges[num_edges].node2 = node_list_tmp2->content[i];
+                            ++num_edges;
+                        }
+                    }
+                }
+                side_edge = 0;
+            }
+            for(int i = 0; node_list_tmp1 && i < node_list_tmp1->size; ++i) {
+                add_elem_list(&node_list1, node_list_tmp1->content[i]);
+            }
+            freeVect(node_list_tmp1);
+            node_list_tmp1 = node_list_tmp2;
+            node_list_tmp2 = NULL; 
+            break;
+        case '-':
+            c = next_token(file, buffer, &size, 0);
+            if ( c == '>' || c == '-' ) {
+                side_edge = 1;
+            }
+            break;
+        case '"':
+            next_token(file, buffer, &size, 1);
+            break;
+        case '[':
+            double w = 1.0;
+            char * label = NULL;
+            parse_attr(file, buffer, &w, &label);
+            
+            for (int i = last_edge; i < num_edges; ++i) {
+                edges[i].weight = w;
+            }
+
+            if ( label != NULL && last_edge == num_edges && node_list1.size > 0 ) {
+                int last_list1 = node_list1.size-1;
+                node_names[node_list1.content[last_list1]] = label;
+            }
+
+            break;
+        case '=':
+            ignore = 1;
+            break;
+        case '}':
+        case EOF:
+            flag = 0;
+        default:
+            break;
+        }
+    }
+
+    for(int i = 0; node_list_tmp1 && i < node_list_tmp1->size; ++i) {
+        add_elem_list(&node_list1, node_list_tmp1->content[i]);
+    }
+    freeVect(node_list_tmp1);
+
+    Vect res = (Vect) malloc(sizeof(struct vect));
+    res->content = node_list1.content;
+    res->capacity = node_list1.capacity;
+    res->size = node_list1.size;
+
+    return res;
+}
+
+#define MAXBUF 1024
+
+void parse_dot_file(const char* filename) {
+    FILE *file = fopen(filename, "r");
+    
+    if (file == NULL) {
+        perror("Error opening file");
+    }
+
+    char buf[MAXBUF];
+    size_t size = 0;
+
+    int c = next_token(file, buf, &size, 0);
+    while ( c != EOF && c != '{' ) {
+        c = next_token(file, buf, &size, 0);
+    }
+    struct HashPair* map = (struct HashPair*) malloc(sizeof(struct HashPair) * MAX_NODES);
+    size_t capacity = MAX_NODES;
+    node_names = (char**) malloc(sizeof(char*) * capacity);
+    for (int i = 0; i < capacity; ++i) {
+        map[i].index = -1;
+        map[i].label = NULL;
+        node_names[i] = NULL;
+    }
+
+    switch(c) {
+        case '{':
+            Vect res = parse_stmt_list(file, buf, &map, &capacity);
+            freeVect(res);
+            break;
+        default:
+            break;    
+    }
+    
+    free(map);
+    fclose(file);
+    printf("END\n");
+}
+
+void freeNodeNames() {
+    if ( node_names != NULL ) {
+
+        for (int i = 0; i < num_rows; ++i) {
+            if ( node_names[i] != NULL ) {
+                free(node_names[i]);
+            }
+        }
+        free(node_names);
+    }
 }

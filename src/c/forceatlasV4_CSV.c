@@ -65,9 +65,9 @@ JNIEXPORT jboolean JNICALL Java_graph_Graph_updatePositions
    static double forces[MAX_NODES][2] = { {0, 0} };
 
    if ( pause_updates == 0 ){
-        parallel_repulsion_edges(forces);
+        repulsion_edges(forces);
         repulsion_intra_clusters(forces, FMaxX, FMaxY);
-        parallel_repulsion_anti_edges(forces);
+        repulsion_anti_edges(forces);
         
         Max_movementOld = Max_movement;
         Max_movement = update_position_forces(forces, PasMaxX, PasMaxY, Max_movement);
@@ -345,13 +345,13 @@ JNIEXPORT jobject JNICALL Java_graph_Graph_computeThreshold
 JNIEXPORT jobject JNICALL Java_graph_Graph_initializeDot
   (JNIEnv *env, jobject obj, jstring filepath, jint md)
 {
-  srand(time(NULL));
 
   jboolean b = JNI_FALSE;
   const char* str = (*env)->GetStringUTFChars(env, filepath, &b);
 
   parse_dot_file(str);
-  compact_label();
+
+  InitPool(&pool, 1 + num_nodes / 4, 6);
 
   modeA = 0;
   if (md == 0) {
@@ -378,11 +378,16 @@ JNIEXPORT jobject JNICALL Java_graph_Graph_initializeDot
   }
 
   initialize_community_colors();
-  compute_average_vectors();
-  
   for (int i = 0; i < num_nodes; i++) {
     random_point_in_center(i);
+    velocities[i].x = velocities[i].y = 0.0;
   }
+
+  n_clusters = (int)sqrt(num_nodes);
+  init_clusters(n_clusters);
+  initialize_centers();
+  assign_cluster_colors();
+  calculate_node_degrees();
 
   jclass res_class = (*env)->FindClass(env, "graph/Metadata");
   jmethodID constructor = (*env)->GetMethodID(env, res_class, "<init>", "(IDDD)V");
@@ -390,6 +395,11 @@ JNIEXPORT jobject JNICALL Java_graph_Graph_initializeDot
 
   (*env)->ReleaseStringUTFChars(env, filepath, str); 
 
+  live_nodes = num_nodes;
+  printf("%d %d\n", num_nodes, num_edges);
+  for (int i = 0; i < num_edges; ++i) {
+    printf("%d -- %d\n", edges[i].node1, edges[i].node2);
+  }
   return res;
 }
 
@@ -461,19 +471,21 @@ JNIEXPORT jobject JNICALL Java_graph_Graph_initiliazeGraph
 JNIEXPORT void JNICALL Java_graph_Graph_freeAllocatedMemory
   (JNIEnv * env, jobject obj)
 {
+  printf("END");
+  // Libérer la mémoire allouée pour les voisins
+  for (int i = 0; i < num_nodes; i++) {
+  	Neighbor* neighbor = adjacency_list[i].head;
+      while (neighbor != NULL) {
+         Neighbor* next = neighbor->next;
+         free(neighbor);
+         neighbor = next;
+      }
+  }
+  free_clusters();
 
-    // Libérer la mémoire allouée pour les voisins
-    for (int i = 0; i < num_nodes; i++) {
-    	Neighbor* neighbor = adjacency_list[i].head;
-        while (neighbor != NULL) {
-           Neighbor* next = neighbor->next;
-           free(neighbor);
-           neighbor = next;
-        }
-    }
-    free_clusters();
+  freeNodeNames();
 
-    FreePool(&pool);
+  FreePool(&pool);
 
 }
 

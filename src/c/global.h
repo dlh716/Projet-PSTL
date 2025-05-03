@@ -8,7 +8,7 @@
 #define MAX_EDGES 1000000
 
 extern Edge edges[MAX_EDGES]; // Pour les arêtes normales
-extern char *node_names[MAX_NODES]; // Array to store node names as strings      
+extern char **node_names; // Array to store node names as strings      
 extern int S[MAX_NODES];
 extern Point vertices[MAX_NODES];
 extern Point velocities[MAX_NODES];

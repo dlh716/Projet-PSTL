@@ -14,6 +14,8 @@ Edge antiedges[MAX_EDGES];  // Pour les anti-arêtes
 
 double** similarity_matrix = NULL;
 
+int no_overlap = 0;
+
 int num_nodes = 0;
 int live_nodes = 0;
 double Lx = 300, Ly = 300;

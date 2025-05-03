@@ -13,6 +13,6 @@ void lireColonneCSV(int *, int*);
 void compute_ratio_S(int *);
 
 void parse_dot_file(const char *filename);
-void compact_label();
+void freeNodeNames();
 
 #endif
