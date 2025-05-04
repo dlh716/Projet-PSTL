@@ -72,7 +72,7 @@ public class Vertex {
      */
     public void delete() {
         isDeleted = true;
-        diameter = 0;
+        //diameter = 0;
     }
     /**
      * @return true si le sommet a été supprimé, false sinon

@@ -96,7 +96,6 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	private native void setKmeansMode(boolean md);
 	private native int[] getHistogram();
 	private native void freeAllocatedMemory();
-     	private native void freeProgramMemory(); // freeAllocatedMemory but also frees the data
 
 
 
@@ -149,23 +148,27 @@ public class Graph extends Application implements GLEventListener, GraphSettings
     private GLWindow glWindow;
 
     // Variables pour les buffers et shaders
+    private FloatBuffer projectionMatrix;
+    
 	private int pointsShaderProgram;
-	private int edgesShaderProgram;
-	private FloatBuffer projectionMatrix;
-	private int vertexBuffer;
-	private int vertexColorBuffer;
-	private int vertexSizeBuffer;
 	private int edgeBuffer;
 	private int edgeColorBuffer;
 	private int edgeSizeBuffer;
+	private int edgeVisibilityBuffer;
 	private float[] edgePoints;
 	private float[] edgeSizes;
 	private float[] edgeColors;
+	private float[] edgeVisibility;
+	
+	private int edgesShaderProgram;
+	private int vertexBuffer;
+	private int vertexColorBuffer;
+	private int vertexSizeBuffer;
+	private int vertexVisibilityBuffer;
 	private float[] vertexPoints;
 	private float[] vertexSizes;
 	private float[] vertexColors;
-	private float[] edgeVisibility;
-	private int edgeVisibilityBuffer;
+	private float[] vertexVisibility;
 
 	// Variables pour le déplacement
 	private double dragOffsetX = 0;
@@ -551,13 +554,16 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 				layout(location = 0) in vec2 position;
 				layout(location = 1) in float size;
 				layout(location = 2) in vec3 color;
+				layout(location = 3) in float visibility;
 				uniform mat4 u_transform;
 				out vec3 fragColor;
+				out float fragVisibility;
 				void main() {
 				   vec4 pos = vec4(position, 0.0, 1.0);
 				   gl_Position = u_transform * pos;
 				   gl_PointSize = size;
 				   fragColor = color;
+				   fragVisibility = visibility;
 				}
 						""";
 
@@ -565,8 +571,12 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 				"""
 				#version 400 core
 				in vec3 fragColor;
+				in float fragVisibility;
 				out vec4 color;
 				void main() {
+				   if (fragVisibility == 0.0) {
+			           discard;
+			       }
 				   float dist = length(gl_PointCoord - vec2(0.5, 0.5));
 				   if (dist < 0.5) {
 				       color = vec4(fragColor, 1.0);
@@ -661,7 +671,9 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexColorBuffer);
 	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexColors.length * Float.BYTES, FloatBuffer.wrap(vertexColors));
 
-	    
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexVisibilityBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexVisibility.length * Float.BYTES, FloatBuffer.wrap(vertexVisibility));
+
 
 	    // === Affichage des sommets ===
 	    gl.glUseProgram(pointsShaderProgram);
@@ -677,6 +689,10 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    gl.glEnableVertexAttribArray(2); // color
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexColorBuffer);
 	    gl.glVertexAttribPointer(2, 3, GL4.GL_FLOAT, false, 0, 0);
+	    
+	    gl.glEnableVertexAttribArray(3); // visibility
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexVisibilityBuffer);
+	    gl.glVertexAttribPointer(3, 1, GL4.GL_FLOAT, false, 0, 0);
 
 	    // Matrice de projection (identité ou zoom plus tard)
 	    int transformLoc = gl.glGetUniformLocation(pointsShaderProgram, "u_transform");
@@ -1566,12 +1582,13 @@ public class Graph extends Application implements GLEventListener, GraphSettings
     
 	private void createBuffers(GL4 gl) {
 	    // Créer les buffers
-	    int[] buffers = new int[3]; // Pour vertex, size, color
-	    gl.glGenBuffers(3, buffers, 0);  // Génère 3 buffers à la fois
+	    int[] buffers = new int[4]; // positions, tailles, couleurs, visibilités
+	    gl.glGenBuffers(4, buffers, 0);
 
 	    vertexBuffer = buffers[0];
 	    vertexSizeBuffer = buffers[1];
 	    vertexColorBuffer = buffers[2];
+	    vertexVisibilityBuffer = buffers[3];
 
 	    // Buffer pour les positions des sommets
 	    FloatBuffer vertexData = FloatBuffer.wrap(vertexPoints);
@@ -1587,7 +1604,13 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    FloatBuffer colorData = FloatBuffer.wrap(vertexColors);
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexColorBuffer);
 	    gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) colorData.limit() * Float.BYTES, colorData, GL4.GL_STATIC_DRAW);
+
+	    // Buffer pour la visibilité des sommets
+	    FloatBuffer visibilityData = FloatBuffer.wrap(vertexVisibility);
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexVisibilityBuffer);
+	    gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) visibilityData.limit() * Float.BYTES, visibilityData, GL4.GL_STATIC_DRAW);
 	}
+
 	
 	private void createEdgeBuffers(GL4 gl) {
 	    int[] buffers = new int[4];
@@ -1619,6 +1642,12 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    vertexPoints = new float[vertexCount * 2];   // x, y pour chaque sommet
 	    vertexSizes = new float[vertexCount];        // taille pour chaque sommet
 	    vertexColors = new float[vertexCount * 3];   // RGB pour chaque sommet
+	    vertexVisibility = new float[vertexCount];   // visibilité pour chaque sommet (NOUVEAU)
+
+	    // Initialisation par défaut des sommets visibles
+	    for (int i = 0; i < vertexCount; i++) {
+	        vertexVisibility[i] = 1.0f;
+	    }
 	    
 	    // Pour les arêtes, nous avons 2 points par arête
 	    edgePoints = new float[edgeCount * 4];       // x1,y1,x2,y2 pour chaque arête
@@ -1637,21 +1666,26 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	 * Prépare les données de rendu pour les sommets
 	 */
 	private void prepareVertexRenderData() {
-		Vertex currentVertex;
-		Community currentCommunity;
+	    Vertex currentVertex;
+	    Community currentCommunity;
+
 	    for (int i = 0; i < vertices.size(); i++) {
-	    	currentVertex = vertices.get(i);
-	    	currentCommunity = vertices.get(i).getCommunity();
-	    	
-	    	// Mise à jour des buffers
+	        currentVertex = vertices.get(i);
+	        currentCommunity = currentVertex.getCommunity();  // léger nettoyage
+
+	        // Mise à jour des buffers
 	        vertexPoints[i * 2] = (float) currentVertex.getX();
 	        vertexPoints[i * 2 + 1] = (float) currentVertex.getY();
-	        vertexSizes[i] = (float) (currentVertex.getDiameter());
-            vertexColors[i * 3] = currentCommunity.getR();
-            vertexColors[i * 3 + 1] = currentCommunity.getG();
-            vertexColors[i * 3 + 2] = currentCommunity.getB();
+	        vertexSizes[i] = (float) currentVertex.getDiameter();
+	        vertexColors[i * 3] = currentCommunity.getR();
+	        vertexColors[i * 3 + 1] = currentCommunity.getG();
+	        vertexColors[i * 3 + 2] = currentCommunity.getB();
+
+	        // Mise à jour de la visibilité
+	        vertexVisibility[i] = currentVertex.isDeleted() ? 0.0f : 1.0f;
 	    }
 	}
+
 	
 	/**
 	 * Prépare les données de rendu pour les arêtes
