@@ -34,20 +34,14 @@ import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
-import javafx.beans.property.*;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.Group;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.layout.AnchorPane;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -102,8 +96,6 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	private native void setKmeansMode(boolean md);
 	private native int[] getHistogram();
 	private native void freeAllocatedMemory();
-    // freeAllocatedMemory but also frees the data
-    private native void freeProgramMemory();
 
 
 
@@ -123,6 +115,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
     public static int WIDTH = 1500; // Largeur de la fenêtre
     public static int HEIGHT = 800; // Hauteur de la fenêtre
     public static int GRAPH_UPSCALE = 5; // Facteur d'agrandissment du graphe
+    public static double CORRELATION_THRESHOLD = 0.5; // Définir la valeur seuil pour l'affichage de la corrélation
 
     // Propriétés pour les différents modes du graphe
     public static final BooleanProperty isRunMode = new SimpleBooleanProperty(true);
@@ -257,9 +250,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
         // Ajuster les rayons des sommets selon leur degré
         for (Vertex v : vertices)
             v.updateDiameter();
-        
-        // Initialisation des buffers pour les sommets et arêtes
-        initializeArrays();
+
         
         // Initialisation de OpenGL avec JOGL
         GLProfile glProfile = GLProfile.get(GLProfile.GL4);
@@ -315,126 +306,119 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 
     /**
      * Trouve le sommet à la position (x, y)
-     * @param x Position x
-     * @param y Position y
+     * @param x Position x déjà ajustée avec viewOffsetX
+     * @param y Position y déjà ajustée avec viewOffsetY
      * @return le sommet trouvé, ou null s'il n'y en a pas
      */
     private Vertex findVertexAt(double x, double y) {
-        // Ajuster les coordonnées en fonction du zoom
-        double adjustedX = (x - viewOffsetX) / zoomFactor;
-        double adjustedY = (y - viewOffsetY) / zoomFactor;
-
-        for (Vertex v : vertices) {
-            double dx = adjustedX - v.getX();
-            double dy = adjustedY - v.getY();
-            double distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance <= (v.getDiameter() / 2) + 5) // Ajouter une marge pour faciliter la sélection
-                return v;
-        }
-        return null;
+    	for (Vertex v : vertices) {
+	    	if (v.isDeleted()) continue;
+		
+	    	double dx = x - v.getX();
+	    	double dy = y - v.getY();
+	    	double distance = Math.sqrt(dx * dx + dy * dy);
+	    	double vertexDiameter = v.getDiameter();
+	    	double margin = (vertexDiameter < 3) ? 3 : 0; // Ajouter une marge pour faciliter la sélection
+	    	double selectionRadius = ((v.getDiameter() / 2) + margin) / zoomFactor; 
+	
+	    	if (distance <= selectionRadius) {
+	    		return v;
+	    	}
+	    }
+    	return null;
     }
     
     /**
      * Ajoute les listeners pour la souris
      */
     private void addMouseListeners() {
-
         glWindow.addMouseListener(new MouseListener() {
+        	@Override
+        	public void mousePressed(MouseEvent e) {
+	        	// Calculer les coordonnées ajustées avec le décalage de vue
+        		double x = (e.getX() - WIDTH / 2.0) / zoomFactor + viewOffsetX;
+        		double y = (HEIGHT / 2.0 - e.getY()) / zoomFactor + viewOffsetY;
 
-            // Gère le maintien du clic de la souris
-            @Override
-            public void mousePressed(MouseEvent e) {
-                double x = e.getX() - WIDTH / 2.0 + viewOffsetX;
-                double y = HEIGHT / 2.0 - e.getY() + viewOffsetY;
-
-                // Vérifier si un sommet est cliqué
-                selectedVertex = findVertexAt(x, y);
-
-                // Déplacer un sommet
-                if (isSelectionMode.get() && selectedVertex != null) {
-                    isDraggingVertex = true;
-	                dragOffsetX = selectedVertex.getX() - x;
-	                dragOffsetY = selectedVertex.getY() - y;
-                }
-
-                // Se déplacer dans le graphe
-                else if (isMoveMode.get()) {
-                    isDraggingGraph = true;
-                    dragStartX = e.getX();
-                    dragStartY = e.getY();
-                }
-                
-				// Supprimer un sommet
-				else if (isDeleteMode.get() && selectedVertex != null) {
-					selectedVertex.delete();
-					System.out.println("Sommet supprimé : " + selectedVertex);
-					deleteNode(selectedVertex.getId());
-					SwingUtilities.invokeLater(() -> glWindow.display());
-				}
-            }
+	        	// Vérifier si un sommet est cliqué
+	        	selectedVertex = findVertexAt(x, y);
+	
+	        	// Déplacer un sommet
+	        	if (isSelectionMode.get() && selectedVertex != null) {
+		        	isDraggingVertex = true;
+		        	dragOffsetX = selectedVertex.getX() - x;
+		        	dragOffsetY = selectedVertex.getY() - y;
+	        	}
+	
+	        	// Se déplacer dans le graphe
+	        	else if (isMoveMode.get()) {
+		        	isDraggingGraph = true;
+		        	dragStartX = e.getX();
+		        	dragStartY = e.getY();
+	        	}
+        	}
 
             // Gère le relâchement du clic de la souris
             @Override
             public void mouseReleased(MouseEvent e) {
-
-				// Déplacer un sommet
+                // Déplacer un sommet
                 if (isSelectionMode.get() && isDraggingVertex && selectedVertex != null) {
                     isDraggingVertex = false;
-					System.out.println("Déplacement du sommet vers (" + selectedVertex.getX() + ", " + selectedVertex.getY() + ")");
+                    System.out.println("Déplacement du sommet vers (" + selectedVertex.getX() + ", " + selectedVertex.getY() + ")");
                     setNodePosition(selectedVertex.getId(), selectedVertex.getX() / GRAPH_UPSCALE, selectedVertex.getY() / GRAPH_UPSCALE);
                     vertexPoints[selectedVertex.getId() * 2] = (float) selectedVertex.getX();
                     vertexPoints[selectedVertex.getId() * 2 + 1] = (float) selectedVertex.getY();
                     selectedVertex = null;
                 }
                 isDraggingGraph = false;
-
             }
 
             @Override
             public void mouseClicked(MouseEvent e) {
-//				double x = e.getX() - WIDTH / 2.0 + viewOffsetX;
-//				double y = HEIGHT / 2.0 - e.getY() + viewOffsetY;
-//
-//				// Vérifier si un sommet est cliqué
-//				selectedVertex = findVertexAt(x, y);
-//
-//				// Obtenir les informations sur un sommet
-//				if (isSelectionMode.get() && selectedVertex != null) {
-//					System.out.println("Sommet sélectionné : " + selectedVertex);
-//				}
-//
-//				// Supprimer un sommet
-//				else if (isDeleteMode.get() && selectedVertex != null) {
-//					selectedVertex.delete();
-//					System.out.println("Sommet supprimé : " + selectedVertex);
-////					for (Edge edge : selectedVertex.getEdges())
-////						edge.delete();
-//					//setdeleteNode(selectedVertex.getId()); // TODO retourne une erreur
-//					SwingUtilities.invokeLater(() -> glWindow.display());
-//				}
-			}
+            	double x = (e.getX() - WIDTH / 2.0) / zoomFactor + viewOffsetX;
+            	double y = (HEIGHT / 2.0 - e.getY()) / zoomFactor + viewOffsetY;
+
+                // Vérifier si un sommet est cliqué
+                selectedVertex = findVertexAt(x, y);
+
+                // Obtenir les informations sur un sommet
+                if (isSelectionMode.get() && selectedVertex != null) {
+                    System.out.println("Sommet sélectionné : " + selectedVertex);
+                }
+
+                // Supprimer un sommet
+                else if (isDeleteMode.get() && selectedVertex != null) {
+                    selectedVertex.delete();
+                    System.out.println("Sommet supprimé : " + selectedVertex);
+                    deleteNode(selectedVertex.getId());
+                    SwingUtilities.invokeLater(() -> glWindow.display());
+                }
+            }
 
             @Override
             public void mouseEntered(MouseEvent e) {}
 
             @Override
             public void mouseExited(MouseEvent e) {}
-            
 
-            // Gère le déplacement de la souris
             @Override
             public void mouseDragged(MouseEvent e) {
-            	boolean updated = false;
+                boolean updated = false;
                 // Déplacer un sommet
                 if (isSelectionMode.get() && isDraggingVertex && selectedVertex != null) {
-                    double newX = e.getX() - WIDTH / 2.0 + viewOffsetX + dragOffsetX;
-                    double newY = HEIGHT / 2.0 - e.getY() + viewOffsetY + dragOffsetY;
+                    // Calculer les coordonnées ajustées pour le drag
+                	double x = (e.getX() - WIDTH / 2.0) / zoomFactor + viewOffsetX;
+                	double y = (HEIGHT / 2.0 - e.getY()) / zoomFactor + viewOffsetY;
+                    
+                    // Appliquer l'offset du drag
+                    double newX = x + dragOffsetX;
+                    double newY = y + dragOffsetY;
+                    
                     selectedVertex.updatePosition(newX, newY);
                     vertexPoints[selectedVertex.getId() * 2] = (float) selectedVertex.getX();
                     vertexPoints[selectedVertex.getId() * 2 + 1] = (float) selectedVertex.getY();
                     updated = true;
                 }
-
+                
                 // Se déplacer dans le graphe
                 else if (isMoveMode.get() && isDraggingGraph) {
                     double deltaX = e.getX() - dragStartX;
@@ -449,8 +433,8 @@ public class Graph extends Application implements GLEventListener, GraphSettings
                     updated = true;
                 }
                 
-	            // Forcer l'affichage sur le thread UI pour éviter les lags visuels pendant le drag
-	            if (updated) SwingUtilities.invokeLater(() -> glWindow.display());
+                // Forcer l'affichage sur le thread UI pour éviter les lags visuels pendant le drag
+                if (updated) SwingUtilities.invokeLater(() -> glWindow.display());
             }
 
             @Override
@@ -458,39 +442,44 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 
             @Override
             public void mouseWheelMoved(MouseEvent e) {
-				if (isMoveMode.get()) {
-					float[] rotation = e.getRotation(); // [x, y]
-					float scrollY = rotation[1];
-					double zoomAmount = 1.1;
+                if (isMoveMode.get()) {
+                    float[] rotation = e.getRotation(); // [x, y]
+                    float scrollY = rotation[1];
+                    double zoomAmount = 1.1;
 
-					if (scrollY == 0) return;
+                    if (scrollY == 0) return;
 
-					double mouseXBefore = (e.getX() - WIDTH / 2.0) + viewOffsetX;
-					double mouseYBefore = (HEIGHT / 2.0 - e.getY()) + viewOffsetY;
+                    // Calculer les coordonnées avant zoom
+                    double mouseXBefore = (e.getX() - WIDTH / 2.0) / zoomFactor + viewOffsetX;
+                    double mouseYBefore = (HEIGHT / 2.0 - e.getY()) / zoomFactor + viewOffsetY;
 
-					if (scrollY > 0) {
-						zoomFactor *= zoomAmount;
-					} else {
-						zoomFactor /= zoomAmount;
-					}
+                    if (scrollY > 0) {
+                        zoomFactor *= zoomAmount;
+                    } else {
+                        zoomFactor /= zoomAmount;
+                    }
 
-					// Limite du facteur de zoom pour éviter les zooms extrêmes
-					zoomFactor = Math.max(0.1, Math.min(zoomFactor, 10.0));
+                    // Limite du facteur de zoom pour éviter les zooms extrêmes
+                    zoomFactor = Math.max(0.1, Math.min(zoomFactor, 10.0));
 
-					double mouseXAfter = (e.getX() - WIDTH / 2.0) + viewOffsetX;
-					double mouseYAfter = (HEIGHT / 2.0 - e.getY()) + viewOffsetY;
+                    // Calculer les coordonnées après zoom
+                    double mouseXAfter = (e.getX() - WIDTH / 2.0) / zoomFactor + viewOffsetX;
+                    double mouseYAfter = (HEIGHT / 2.0 - e.getY()) / zoomFactor + viewOffsetY;
 
-					viewOffsetX += (mouseXBefore - mouseXAfter);
-					viewOffsetY += (mouseYBefore - mouseYAfter);
+                    // Ajuster le décalage pour maintenir le point sous la souris
+                    viewOffsetX += (mouseXBefore - mouseXAfter);
+                    viewOffsetY += (mouseYBefore - mouseYAfter);
 
-					updateProjectionMatrix();
-					SwingUtilities.invokeLater(() -> glWindow.display());
-				}
+                    updateProjectionMatrix();
+                    SwingUtilities.invokeLater(() -> glWindow.display());
+                }
             }
-
         });
     }
     
+    /**
+     * Ajoute les listeners pour le clavier
+     */
     private void addKeyListeners() {
         glWindow.addKeyListener(new KeyListener() {
 
@@ -548,6 +537,9 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    gl.glEnable(GL4.GL_PROGRAM_POINT_SIZE);
 	    gl.glEnable(GL4.GL_BLEND);
 	    gl.glBlendFunc(GL4.GL_SRC_ALPHA, GL4.GL_ONE_MINUS_SRC_ALPHA);
+	    
+        // Initialisation des buffers pour les sommets et arêtes
+        initializeArrays();
 
 	    // Créer des buffers pour les positions, tailles et couleurs
 	    createBuffers(gl);
@@ -637,7 +629,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
     @Override
     public void display(GLAutoDrawable drawable) {
 	    GL4 gl = drawable.getGL().getGL4();
-	    System.out.println("display");
+	    //System.out.println("display");
 
 	    // Met à jour la matrice de transformation avec les offsets actuels
 	    updateProjectionMatrix();
@@ -668,18 +660,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexColorBuffer);
 	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexColors.length * Float.BYTES, FloatBuffer.wrap(vertexColors));
 
-	    // Arêtes
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgePoints.length * Float.BYTES, FloatBuffer.wrap(edgePoints));
-
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeColorBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgeColors.length * Float.BYTES, FloatBuffer.wrap(edgeColors));
-
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeSizeBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgeSizes.length * Float.BYTES, FloatBuffer.wrap(edgeSizes));
 	    
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeVisibilityBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgeVisibility.length * Float.BYTES, FloatBuffer.wrap(edgeVisibility));
 
 	    // === Affichage des sommets ===
 	    gl.glUseProgram(pointsShaderProgram);
@@ -702,6 +683,19 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 
 	    // Dessin des points
 	    gl.glDrawArrays(GL4.GL_POINTS, 0, vertices.size());
+	    
+	    // Arêtes
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgePoints.length * Float.BYTES, FloatBuffer.wrap(edgePoints));
+
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeColorBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgeColors.length * Float.BYTES, FloatBuffer.wrap(edgeColors));
+
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeSizeBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgeSizes.length * Float.BYTES, FloatBuffer.wrap(edgeSizes));
+	    
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeVisibilityBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgeVisibility.length * Float.BYTES, FloatBuffer.wrap(edgeVisibility));
 
 	    // === Affichage des arêtes ===
 	    gl.glUseProgram(edgesShaderProgram);
@@ -774,7 +768,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
         // Initialisation du graphe avec le fichier à charger, la méthode de similitude et la méthode de détection de communautés
         String sample1 = "samples/iris.csv";
         String sample2 = "samples/predicancerNUadd9239.csv";
-        initGraphCsv(sample2, GraphData.SimilitudeMode.CORRELATION, GraphData.NodeCommunity.LOUVAIN);
+        initGraphCsv(sample1, GraphData.SimilitudeMode.CORRELATION, GraphData.NodeCommunity.LOUVAIN);
 
         setScreenSize(WIDTH, HEIGHT); // Taille de l'écran du graphe
         setBackgroundColor(0.0f, 0.0f, 0.0f); // Couleur de fond du graphe
@@ -881,8 +875,8 @@ public class Graph extends Application implements GLEventListener, GraphSettings
         System.out.println("Seuil recommandé pour les anti-arêtes : " + recommendedAntiThreshold);
 
         // Valeurs imposées pour le moment (à modifier)
-        //recommendedThreshold = 0.966;
-        //recommendedAntiThreshold = 0.6;
+//        recommendedThreshold = 0.966;
+//        recommendedAntiThreshold = 0.6;
 
         // Déterminer le mode de détection de communautés à utiliser
         if (community == null)
@@ -1595,56 +1589,49 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	}
 	
 	private void createEdgeBuffers(GL4 gl) {
-	    int[] buffers = new int[4]; // Pour edge points, edge color, edge size, et edge visibility
-	    gl.glGenBuffers(4, buffers, 0); // Génère 4 buffers
-
+	    int[] buffers = new int[4];
+	    gl.glGenBuffers(4, buffers, 0);
+	    
 	    edgeBuffer = buffers[0];
 	    edgeColorBuffer = buffers[1];
 	    edgeSizeBuffer = buffers[2];
 	    edgeVisibilityBuffer = buffers[3];
-
-	    // Buffer pour les positions des arêtes
-	    FloatBuffer edgeData = FloatBuffer.wrap(edgePoints);
+	    
+	    // La taille des buffers doit correspondre à la quantité de données
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeBuffer);
-	    gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) edgeData.limit() * Float.BYTES, edgeData, GL4.GL_STATIC_DRAW);
-
-	    // Buffer pour les couleurs des arêtes
-	    FloatBuffer edgeColorData = FloatBuffer.wrap(edgeColors);
+	    gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) edgePoints.length * Float.BYTES, null, GL4.GL_DYNAMIC_DRAW);
+	    
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeColorBuffer);
-	    gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) edgeColorData.limit() * Float.BYTES, edgeColorData, GL4.GL_STATIC_DRAW);
-
-	    // Buffer pour les tailles des arêtes
-	    FloatBuffer edgeSizeData = FloatBuffer.wrap(edgeSizes);
+	    gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) edgeColors.length * Float.BYTES, null, GL4.GL_DYNAMIC_DRAW);
+	    
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeSizeBuffer);
-	    gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) edgeSizeData.limit() * Float.BYTES, edgeSizeData, GL4.GL_STATIC_DRAW);
-
-	    // Buffer pour la visibilité des arêtes
-	    FloatBuffer edgeVisibilityData = FloatBuffer.wrap(edgeVisibility);
+	    gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) edgeSizes.length * Float.BYTES, null, GL4.GL_DYNAMIC_DRAW);
+	    
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeVisibilityBuffer);
-	    gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) edgeVisibilityData.limit() * Float.BYTES, edgeVisibilityData, GL4.GL_STATIC_DRAW);
+	    gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) edgeVisibility.length * Float.BYTES, null, GL4.GL_DYNAMIC_DRAW);
+	}
+
+	private void initializeArrays() {
+	    int vertexCount = vertices.size();
+	    int edgeCount = edges.size();
+	    
+	    vertexPoints = new float[vertexCount * 2];   // x, y pour chaque sommet
+	    vertexSizes = new float[vertexCount];        // taille pour chaque sommet
+	    vertexColors = new float[vertexCount * 3];   // RGB pour chaque sommet
+	    
+	    // Pour les arêtes, nous avons 2 points par arête
+	    edgePoints = new float[edgeCount * 4];       // x1,y1,x2,y2 pour chaque arête
+	    edgeColors = new float[edgeCount * 6];       // 3 composantes (RGB) pour chaque point de l'arête
+	    edgeSizes = new float[edgeCount * 2];        // taille pour chaque point de l'arête
+	    edgeVisibility = new float[edgeCount * 2];   // visibilité pour chaque point de l'arête
+	    
+	    // Initialisation des valeurs par défaut
+	    for (int i = 0; i < edgeCount; i++) {
+	        edgeVisibility[i * 2] = 1.0f;
+	        edgeVisibility[i * 2 + 1] = 1.0f;
+	    }
 	}
 	
-	private void initializeArrays() {
-		// Allouer avec une marge pour éviter des réallocations fréquentes
-		int vertexCount = vertices.size();
-		int edgeCount = edges.size();
-
-		vertexPoints = new float[vertexCount * 2]; // x, y pour chaque sommet
-		vertexSizes = new float[vertexCount]; // radius pour chaque sommet
-		edgePoints = new float[edgeCount * 4]; // x1, y1, x2, y2 pour chaque arête
-	    vertexColors = new float[vertexCount * 3]; // 3 composantes par sommet (R, G, B)
-	    edgeSizes = new float[edgeCount]; // taille des arêtes
-	    edgeColors = new float[edgeCount * 3]; // couleur des arêtes (R, G, B pour chaque arête)
-	    edgeVisibility = new float[edgeCount * 2]; // 2 points par arête
-
-        // Par défaut, toutes les arêtes sont visibles
-        for (int i = 0; i < edges.size(); i++) {
-            edgeVisibility[i * 2] = 1f;
-            edgeVisibility[i * 2 + 1] = 1f;
-        }
-	    
-	}
-
 	/**
 	 * Prépare les données de rendu pour les sommets
 	 */
@@ -1664,33 +1651,51 @@ public class Graph extends Application implements GLEventListener, GraphSettings
             vertexColors[i * 3 + 2] = currentCommunity.getB();
 	    }
 	}
-
+	
 	/**
 	 * Prépare les données de rendu pour les arêtes
 	 */
 	private void prepareEdgeRenderData() {
-		Edge currentEdge;
-		Community startCommunity, endCommunity;
-		Vertex startVertex, endVertex;
 	    for (int i = 0; i < edges.size(); i++) {
-	    	currentEdge = edges.get(i);
-	        startVertex = currentEdge.getStart();
-	        endVertex = currentEdge.getEnd();
-	        startCommunity = startVertex.getCommunity();
-	        endCommunity = endVertex.getCommunity();
-
-	        // Mise à jour des buffers
-            edgePoints[i * 4] = (float) startVertex.getX();
-            edgePoints[i * 4 + 1] = (float) startVertex.getY();
-            edgePoints[i * 4 + 2] = (float) endVertex.getX();
-            edgePoints[i * 4 + 3] = (float) endVertex.getY();
-			edgeSizes[i] = (float) (currentEdge.getWeight());
-            edgeColors[i * 3] = (startCommunity.getR() + endCommunity.getR()) / 2;
-            edgeColors[i * 3 + 1] = (startCommunity.getG() + endCommunity.getG()) / 2;
-            edgeColors[i * 3 + 2] = (startCommunity.getB() + endCommunity.getB()) / 2;
-            float visValue = (startVertex.isDeleted() || endVertex.isDeleted()) ? 0.0f : 1.0f;
-            edgeVisibility[i * 2] = visValue;
-            edgeVisibility[i * 2 + 1] = visValue;
+	        Edge currentEdge = edges.get(i);
+	        
+	    	if (currentEdge.getWeight() > CORRELATION_THRESHOLD) {
+		        Vertex startVertex = currentEdge.getStart();
+		        Vertex endVertex = currentEdge.getEnd();
+		        Community startCommunity = startVertex.getCommunity();
+		        Community endCommunity = endVertex.getCommunity();
+	
+		        // Points de début de l'arête
+		        edgePoints[i * 4] = (float) startVertex.getX();
+		        edgePoints[i * 4 + 1] = (float) startVertex.getY();
+		        
+		        // Points de fin de l'arête
+		        edgePoints[i * 4 + 2] = (float) endVertex.getX();
+		        edgePoints[i * 4 + 3] = (float) endVertex.getY();
+		        
+		        // Couleur moyenne entre les deux communautés
+		        float r = (startCommunity.getR() + endCommunity.getR()) / 2.0f;
+		        float g = (startCommunity.getG() + endCommunity.getG()) / 2.0f;
+		        float b = (startCommunity.getB() + endCommunity.getB()) / 2.0f;
+		        
+		        // Couleur pour les deux points de l'arête
+		        edgeColors[i * 6] = r;     // Début R
+		        edgeColors[i * 6 + 1] = g; // Début G
+		        edgeColors[i * 6 + 2] = b; // Début B
+		        edgeColors[i * 6 + 3] = r; // Fin R
+		        edgeColors[i * 6 + 4] = g; // Fin G
+		        edgeColors[i * 6 + 5] = b; // Fin B
+		        
+		        // Taille pour les deux points
+		        float size = (float) currentEdge.getWeight();
+		        edgeSizes[i * 2] = size;
+		        edgeSizes[i * 2 + 1] = size;
+		        
+		        // Visibilité - 0.0 si supprimé, 1.0 si visible
+		        float visibility = (startVertex.isDeleted() || endVertex.isDeleted()) ? 0.0f : 1.0f;
+		        edgeVisibility[i * 2] = visibility;
+		        edgeVisibility[i * 2 + 1] = visibility;
+		    }
 	    }
 	}
 	
