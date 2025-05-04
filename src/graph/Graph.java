@@ -96,6 +96,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	private native void setKmeansMode(boolean md);
 	private native int[] getHistogram();
 	private native void freeAllocatedMemory();
+     	private native void freeProgramMemory(); // freeAllocatedMemory but also frees the data
 
 
 
