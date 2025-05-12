@@ -7,6 +7,8 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,23 +29,17 @@ import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.GLCapabilities;
 import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.GLProfile;
-import com.jogamp.opengl.awt.GLJPanel;
 import com.jogamp.opengl.util.FPSAnimator;
 
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
-import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleBooleanProperty;
-import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.scene.Scene;
 import javafx.scene.layout.Pane;
 import javafx.stage.Stage;
-import javafx.util.Duration;
 
 /**
  * Classe principale pour l'affichage du graphe avec JavaFX et JOGL
@@ -61,11 +57,8 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	private native Metadata initiliazeGraph(int modeCommunity, double threshold, double anti_threshold);
 	private native Metadata initializeDot(String filepath, int modeCommunity);
 
-	/** the calculation depends on how big the window is
-	 * @param width positive real number
-	 * @param height positive real number
-	 */
-	private native void setDimension(double width, double height); // TODO
+	@SuppressWarnings("unused")
+	private native void setDimension(double width, double height); // TODO (la méthode setDimension ne fonctionne pas correctement dans le code C)
 
 	private native boolean updatePositions();
 	private native Vertex[] getPositions();
@@ -83,39 +76,28 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	private native void setSeuilRep(double seuilrep);
 	private native void setAmortissement(double amortissement);
 	private native void SetNumberClusters(int new_number_of_clusters);
-    /**
-     * ignores node for the algorithm
-     * @param index index of node to delete
-     */
 	private native void deleteNode(int index);
-    /**
-     * restores deleted node for the algorithm
-     * @param index index of node to restore
-     */
-	private native void restoreNode(int index);
 	private native void setKmeansMode(boolean md);
 	private native int[] getHistogram();
 	private native void freeAllocatedMemory();
 
-
-
-
     // Variables graphiques
-    private GLJPanel glPanel; // JPanel pour le rendu OpenGL
     private FPSAnimator animator; // Animation du rendu OpenGL
 
     // Variables liées au graphe
-    private List<Vertex> vertices;
-    private List<Edge> edges;
+    private List<Vertex> vertices; // Liste des sommets du graphe
+    private List<Edge> edges; // Liste des arêtes du graphe
 
-    private float bg_color_r = 1.0f;
-    private float bg_color_g = 1.0f;
-    private float bg_color_b = 1.0f;
+    private float bg_color_r = 0.0f; // Composante rouge de la couleur de fond
+    private float bg_color_g = 0.0f; // Composante verte de la couleur de fond
+    private float bg_color_b = 0.0f; // Composante bleue de la couleur de fond
 
-    public static int WIDTH = 1500; // Largeur de la fenêtre
-    public static int HEIGHT = 800; // Hauteur de la fenêtre
+    public static int WIDTH = 1000; // Largeur de la fenêtre
+    public static int HEIGHT = 1000; // Hauteur de la fenêtre
     public static int GRAPH_UPSCALE = 5; // Facteur d'agrandissment du graphe
     public static double CORRELATION_THRESHOLD = 0.5; // Définir la valeur seuil pour l'affichage de la corrélation
+
+	public static String IMAGE_EXPORT_PATH = "capture"; // Chemin d'exportation des images
 
     // Propriétés pour les différents modes du graphe
     public static final BooleanProperty isRunMode = new SimpleBooleanProperty(true);
@@ -126,9 +108,6 @@ public class Graph extends Application implements GLEventListener, GraphSettings
     // Propriété pour le degré minimum des sommets
     public static final IntegerProperty minimumDegree = new SimpleIntegerProperty(0);
 
-    // Propriété pour la fréquence de mise à jour du graphe
-    public static final DoubleProperty updateFrequency = new SimpleDoubleProperty(1.0);
-
     // Variables pour le déplacement des sommets et de la vue
     private boolean isDraggingVertex = false;
     private Vertex selectedVertex = null;
@@ -138,29 +117,15 @@ public class Graph extends Application implements GLEventListener, GraphSettings
     private double viewOffsetY = 0;
     private boolean isDraggingGraph = false;
     private double zoomFactor = 1.0;
-    private final double zoomSensitivity = 0.1;
 
     private Metadata init_metadata;
     private Metadata metadata;
-    private Pane root;
-    private Scene scene;
-    private Timeline timeline;
     private GLWindow glWindow;
 
     // Variables pour les buffers et shaders
     private FloatBuffer projectionMatrix;
     
-	private int pointsShaderProgram;
-	private int edgeBuffer;
-	private int edgeColorBuffer;
-	private int edgeSizeBuffer;
-	private int edgeVisibilityBuffer;
-	private float[] edgePoints;
-	private float[] edgeSizes;
-	private float[] edgeColors;
-	private float[] edgeVisibility;
-	
-	private int edgesShaderProgram;
+	private int verticesShaderProgram;
 	private int vertexBuffer;
 	private int vertexColorBuffer;
 	private int vertexSizeBuffer;
@@ -170,9 +135,33 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	private float[] vertexColors;
 	private float[] vertexVisibility;
 
+	private int edgesShaderProgram;
+	private int edgeBuffer;
+	private int edgeColorBuffer;
+	private int edgeSizeBuffer;
+	private int edgeVisibilityBuffer;
+	private float[] edgePoints;
+	private float[] edgeSizes;
+	private float[] edgeColors;
+	private float[] edgeVisibility;
+	
+	private int doubleCircleShaderProgram;
+	private int bezierShaderProgram;
+	
+	private int bezierBuffer;
+	private int bezierColorBuffer;
+	private int bezierSizeBuffer;
+	private int bezierVisibilityBuffer;
+	private float[] bezierPoints;
+	private float[] bezierSizes;
+	private float[] bezierColors;
+	private float[] bezierVisibility;
+	
 	// Variables pour le déplacement
 	private double dragOffsetX = 0;
 	private double dragOffsetY = 0;
+
+
 
 
     public static void main(String[] args) {
@@ -187,38 +176,40 @@ public class Graph extends Application implements GLEventListener, GraphSettings
     // -------------------------------------------------------------------------
 
     /**
-     * Méthode principale de l'application
-     */
+	 * Méthode principale du module graphique
+	 * @param primaryStage Fenêtre principale de l'application
+	 */
     @Override
+	@SuppressWarnings("unused")
     public void start(Stage primaryStage) {
 
-        // Ajouter les listeners pour les différents modes du graphe
-    	isRunMode.addListener((obs, oldValue, newValue) -> {
+        // Listeners pour le mode d'exécution RUN
+    	isRunMode.addListener((obs, oldValue, newValue) ->
     	    Platform.runLater(() -> {
     	        if (newValue) {
-    	            System.out.println("Tentative de reprise de l'animation...");
-    	            // Forcer l'état de l'animateur si nécessaire
+    	            //System.out.println("Try to resume the animation...");
     	            if (!animator.isAnimating()) {
     	                animator.resume();
-    	                System.out.println("Reprise de l'animation réussie");
+    	                //System.out.println("Animation resumed");
     	            }
     	        } else {
-    	            System.out.println("Tentative de pause de l'animation...");
+    	            //System.out.println("Try to pause the animation...");
     	            if (animator.isAnimating()) {
     	                animator.pause();
-    	                System.out.println("Pause de l'animation réussie");
+    	                //System.out.println("Animation paused");
     	            }
     	        }
-    	    });
-    	});
+    	    })
+    	);
 
-    	
-        // Initialisation (provisoire, devra être appelé par l'interface graphique)
+
+        // Initialisation (provisoire, devra être appelé par l'interface utilisateur)
         testInit();
 
 
         // Récupérer les sommets
         vertices = List.of(getPositions());
+		System.out.println("Number of vertices: " + vertices.size());
 
         // Récupérer les couleurs des clusters
         float[][] color = getClusterColors();
@@ -236,12 +227,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
             vertices.get(i).setId(i); // Attribution d'un identifiant unique à chaque sommet
             vertices.get(i).setCommunity(communities.get(community_id)); // Attribution de la communauté à chaque sommet
         }
-
-        // Debug : afficher les communautés
-        System.out.println("\nCommunautés (" + communities.size() + ") :");
-        for (Community c : communities.values())
-            System.out.println("- " + c);
-        System.out.println();
+		System.out.println("Number of communities: " + communities.size());
 
         // Récupérer les arêtes
         edges = new ArrayList<>();
@@ -250,13 +236,24 @@ public class Graph extends Application implements GLEventListener, GraphSettings
             Edge e = new Edge(vertices.get(edgeC.getStart()), vertices.get(edgeC.getEnd()), edgeC.getWeight());
             edges.add(e);
         }
+		System.out.println("Number of edges: " + edges.size());
 
         // Ajuster les rayons des sommets selon leur degré
         for (Vertex v : vertices)
             v.updateDiameter();
 
-        
-        // Initialisation de OpenGL avec JOGL
+		System.out.println("================================================================");
+		System.out.println("Once the graph is initialized, you can use the following keys:");
+		System.out.println("1: switch to RUN mode");
+		System.out.println("2: switch to SELECTION mode (select and move vertices)");
+		System.out.println("3: switch to MOVE mode (translate/zoom the graph)");
+		System.out.println("4: switch to DELETE mode (delete vertices)");
+		System.out.println("5: toggle the minimum degree of vertices (0 or 1)");
+		System.out.println("6: export the graph to a PNG file");
+		System.out.println("7: export the graph to an upgraded PNG file");
+		System.out.println("================================================================");
+
+		// Initialisation de OpenGL avec JOGL
         GLProfile glProfile = GLProfile.get(GLProfile.GL4);
         GLCapabilities capabilities = new GLCapabilities(glProfile);
         capabilities.setDoubleBuffered(true);
@@ -272,7 +269,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
         glWindow.addWindowListener(new WindowAdapter() {
         @Override
         public void windowDestroyed(WindowEvent e) {
-        System.exit(0); // Quitter l'application lorsque la fenêtre est fermée
+        	System.exit(0); // Quitter l'application lorsque la fenêtre est fermée
         }
         });
 
@@ -298,12 +295,8 @@ public class Graph extends Application implements GLEventListener, GraphSettings
         animator.setExclusiveContext(false);
         animator.start();
         
-        // Tests d'actions sur le graphe (en attendant l'interface graphique)
-//        testActions();
-        
         primaryStage.setTitle("Graphique avec JOGL et JavaFX");
         primaryStage.setScene(scene);
-        //primaryStage.setMaximized(true);
         primaryStage.setOnCloseRequest(event -> Platform.exit());
         primaryStage.show();
     }
@@ -325,18 +318,22 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    	double margin = (vertexDiameter < 3) ? 3 : 0; // Ajouter une marge pour faciliter la sélection
 	    	double selectionRadius = ((v.getDiameter() / 2) + margin) / zoomFactor; 
 	
-	    	if (distance <= selectionRadius) {
+	    	if (distance <= selectionRadius)
 	    		return v;
-	    	}
 	    }
     	return null;
     }
-    
+
     /**
-     * Ajoute les listeners pour la souris
+     * Ajoute les listeners pour les actions de la souris (clic, déplacement, scroll)
      */
     private void addMouseListeners() {
         glWindow.addMouseListener(new MouseListener() {
+
+			/**
+			 * Gère le maintien du clic de la souris
+			 * @param e Événement de la souris
+			 */
         	@Override
         	public void mousePressed(MouseEvent e) {
 	        	// Calculer les coordonnées ajustées avec le décalage de vue
@@ -361,13 +358,16 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	        	}
         	}
 
-            // Gère le relâchement du clic de la souris
+			/**
+			 * Gère le relâchement du clic de la souris
+			 * @param e Événement de la souris
+			 */
             @Override
             public void mouseReleased(MouseEvent e) {
                 // Déplacer un sommet
                 if (isSelectionMode.get() && isDraggingVertex && selectedVertex != null) {
                     isDraggingVertex = false;
-                    System.out.println("Déplacement du sommet vers (" + selectedVertex.getX() + ", " + selectedVertex.getY() + ")");
+					System.out.println("Move vertex to (" + selectedVertex.getX() + ", " + selectedVertex.getY() + ")");
                     setNodePosition(selectedVertex.getId(), selectedVertex.getX() / GRAPH_UPSCALE, selectedVertex.getY() / GRAPH_UPSCALE);
                     vertexPoints[selectedVertex.getId() * 2] = (float) selectedVertex.getX();
                     vertexPoints[selectedVertex.getId() * 2 + 1] = (float) selectedVertex.getY();
@@ -376,6 +376,10 @@ public class Graph extends Application implements GLEventListener, GraphSettings
                 isDraggingGraph = false;
             }
 
+			/**
+			 * Gère le clic de la souris
+			 * @param e Événement de la souris
+			 */
             @Override
             public void mouseClicked(MouseEvent e) {
             	double x = (e.getX() - WIDTH / 2.0) / zoomFactor + viewOffsetX;
@@ -386,13 +390,13 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 
                 // Obtenir les informations sur un sommet
                 if (isSelectionMode.get() && selectedVertex != null) {
-                    System.out.println("Sommet sélectionné : " + selectedVertex);
+                    System.out.println("Selected vertex: " + selectedVertex);
                 }
 
                 // Supprimer un sommet
                 else if (isDeleteMode.get() && selectedVertex != null) {
                     selectedVertex.delete();
-                    System.out.println("Sommet supprimé : " + selectedVertex);
+                    System.out.println("Deleted vertex: " + selectedVertex);
                     deleteNode(selectedVertex.getId());
                     SwingUtilities.invokeLater(() -> glWindow.display());
                 }
@@ -404,6 +408,10 @@ public class Graph extends Application implements GLEventListener, GraphSettings
             @Override
             public void mouseExited(MouseEvent e) {}
 
+			/**
+			 * Gère le glisser-déposer de la souris
+			 * @param e Événement de la souris
+			 */
             @Override
             public void mouseDragged(MouseEvent e) {
                 boolean updated = false;
@@ -444,6 +452,10 @@ public class Graph extends Application implements GLEventListener, GraphSettings
             @Override
             public void mouseMoved(MouseEvent e) {}
 
+			/**
+			 * Gère le scroll de la souris
+			 * @param e Événement de la souris
+			 */
             @Override
             public void mouseWheelMoved(MouseEvent e) {
                 if (isMoveMode.get()) {
@@ -480,45 +492,65 @@ public class Graph extends Application implements GLEventListener, GraphSettings
             }
         });
     }
-    
+
     /**
-     * Ajoute les listeners pour le clavier
+     * Ajoute les listeners pour le clavier (touche pressée)
      */
     private void addKeyListeners() {
         glWindow.addKeyListener(new KeyListener() {
 
+			/**
+			 * Gère la pression d'une touche
+			 * @param e Événement de la touche pressée
+			 */
         	@Override
         	public void keyPressed(KeyEvent e) {
         	    char keyChar = e.getKeyChar(); // Récupère le caractère associé à la touche pressée
-
-        	    // Afficher le caractère pour le débogage
-        	    System.out.println("Touche pressée : " + keyChar);
         	    
         	    // Vérifier si la touche pressée est un chiffre entre 1 et 9
         	    if (keyChar >= '1' && keyChar <= '9') {
         	        int keyNumber = keyChar - '0';  // Convertit le caractère en un nombre entier
-        	        System.out.println("Touche " + keyNumber + " pressée");
+
+					// Obtenir la date et l'heure actuelles pour le nom des images à sauvegarder
+					LocalDateTime now = LocalDateTime.now();
+					DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmmss");
+					String formattedDate = now.format(formatter);
 
         	        // Switch en fonction de la touche pressée
         	        switch (keyNumber) {
-        	            case 1:
-        	                setMode(GraphData.GraphMode.SELECTION);
-        	                System.out.println("Switch to " + getMode() + " - Vous pouvez sélectionner et déplacer des sommets");
-        	                break;
+						case 1:
+							setMode(GraphData.GraphMode.RUN);
+							break;
         	            case 2:
-        	                setMode(GraphData.GraphMode.DELETE);
-        	                System.out.println("Switch to " + getMode() + " - Vous pouvez supprimer des sommets");
+        	                setMode(GraphData.GraphMode.SELECTION);
         	                break;
-        	            case 3:
-        	                setMode(GraphData.GraphMode.RUN);
-        	                System.out.println("Back to " + getMode() + " - Exécution du graphe (en mouvement)");
-        	                break;
+						case 3:
+							setMode(GraphData.GraphMode.MOVE);
+							break;
         	            case 4:
-        	                setMode(GraphData.GraphMode.MOVE);
-        	                System.out.println("Back to " + getMode() + " - Vous pouvez vous déplacer dans le graphe");
+        	                setMode(GraphData.GraphMode.DELETE);
         	                break;
+        	            case 5:
+        	            	if (getMinimumDegree() > 0) {
+        	            		setMinimumDegree(0);
+        	            		System.out.println("Minimum vertex degree set to 0");
+        	            	} else {
+        	            		setMinimumDegree(1);
+        	            		System.out.println("Minimum vertex degree set to 1");
+        	            	}
+        	                break;
+        	            case 6:
+        	                exportToPng("graph_" + formattedDate + ".png");
+        	                break;
+        	            case 7:
+							upgradedExportToPng("upgradedGraph_" + formattedDate + ".png");
+        	                break;
+						default:
+							System.out.println("Invalid key pressed: " + keyChar);
         	        }
-        	    }
+        	    } else {
+					System.out.println("Invalid key pressed: " + keyChar);
+				}
 
             }
 
@@ -527,102 +559,34 @@ public class Graph extends Application implements GLEventListener, GraphSettings
         });
     }
 
-
-
     /**
      * Initialise OpenGL
      * @param drawable Objet OpenGL
      */
     @Override
     public void init(GLAutoDrawable drawable) {
-        GL4 gl = drawable.getGL().getGL4(); // Utiliser GL4 au lieu de GL
-        gl.glClearColor(bg_color_r, bg_color_g, bg_color_b, 1.0f); // Couleur de fond de l'écran
-        gl.glEnable(GL4.GL_DEPTH_TEST); // Activer le test de profondeur pour les objets 3D
-	    gl.glEnable(GL4.GL_PROGRAM_POINT_SIZE);
-	    gl.glEnable(GL4.GL_BLEND);
-	    gl.glBlendFunc(GL4.GL_SRC_ALPHA, GL4.GL_ONE_MINUS_SRC_ALPHA);
-	    
+
+    	// Utiliser GL4 au lieu de GL pour accéder aux fonctionnalités OpenGL 4
+    	GL4 gl = drawable.getGL().getGL4();
+
+    	// Définir la couleur de fond de l'écran (en RGB)
+    	gl.glClearColor(bg_color_r, bg_color_g, bg_color_b, 1.0f);
+
+    	// Contrôler la taille des points
+    	gl.glEnable(GL4.GL_PROGRAM_POINT_SIZE);
+
+    	// Test de profondeur pour gérer les objets devant ou derrière d'autres objets
+    	gl.glEnable(GL4.GL_DEPTH_TEST);
+
         // Initialisation des buffers pour les sommets et arêtes
         initializeArrays();
-
-	    // Créer des buffers pour les positions, tailles et couleurs
-	    createBuffers(gl);
-
-	    String vertexShaderSourcePoints =
-				"""
-				#version 400 core
-				layout(location = 0) in vec2 position;
-				layout(location = 1) in float size;
-				layout(location = 2) in vec3 color;
-				layout(location = 3) in float visibility;
-				uniform mat4 u_transform;
-				out vec3 fragColor;
-				out float fragVisibility;
-				void main() {
-				   vec4 pos = vec4(position, 0.0, 1.0);
-				   gl_Position = u_transform * pos;
-				   gl_PointSize = size;
-				   fragColor = color;
-				   fragVisibility = visibility;
-				}
-						""";
-
-	    String fragmentShaderSourcePoints =
-				"""
-				#version 400 core
-				in vec3 fragColor;
-				in float fragVisibility;
-				out vec4 color;
-				void main() {
-				   if (fragVisibility == 0.0) {
-			           discard;
-			       }
-				   float dist = length(gl_PointCoord - vec2(0.5, 0.5));
-				   if (dist < 0.5) {
-				       color = vec4(fragColor, 1.0);
-				   } else {
-				       discard;
-				   }
-				}
-				""";
-
+	    createVertexBuffers(gl);
 	    createEdgeBuffers(gl);
-
-	    String vertexShaderSourceEdges =
-	    		"""
-				#version 400 core
-				layout(location = 0) in vec2 position;
-				layout(location = 1) in vec3 color;
-				layout(location = 2) in float size;
-				layout(location = 3) in float visibility;
-				uniform mat4 u_transform;
-				out vec3 fragColor;
-				out float fragVisibility;
-				void main() {
-				    vec4 pos = vec4(position, 0.0, 1.0);
-				    gl_Position = u_transform * pos;
-				    fragColor = color;
-				    fragVisibility = visibility;
-				}
-	    		""";
-
-	    String fragmentShaderSourceEdges =
-				"""
-				#version 400 core
-				in vec3 fragColor;
-				in float fragVisibility;
-				out vec4 color;
-				void main() {
-				    if (fragVisibility == 0.0) {
-				        discard;
-				    }
-				    color = vec4(fragColor, 1.0);
-				}
-				""";
-
-	    pointsShaderProgram = createShaderProgram(gl, vertexShaderSourcePoints, fragmentShaderSourcePoints);
-	    edgesShaderProgram = createShaderProgram(gl, vertexShaderSourceEdges, fragmentShaderSourceEdges);
-        // gl.glHint(GL4.GL_POINT_SMOOTH_HINT, GL4.GL_NICEST);
+	    createBezierBuffers(gl);
+	    verticesShaderProgram = createShaderProgram(gl, POINT_VERTEX_SHADER, POINT_FRAGMENT_SHADER);
+	    edgesShaderProgram = createShaderProgram(gl, EDGE_VERTEX_SHADER, EDGE_FRAGMENT_SHADER);
+	    doubleCircleShaderProgram = createShaderProgram(gl, DOUBLE_CIRCLE_VERTEX_SHADER, DOUBLE_CIRCLE_FRAGMENT_SHADER);
+	    bezierShaderProgram = createShaderProgram(gl, BEZIER_VERTEX_SHADER, BEZIER_FRAGMENT_SHADER);
     }
 
     /**
@@ -640,7 +604,6 @@ public class Graph extends Application implements GLEventListener, GraphSettings
     @Override
     public void display(GLAutoDrawable drawable) {
 	    GL4 gl = drawable.getGL().getGL4();
-	    //System.out.println("display");
 
 	    // Met à jour la matrice de transformation avec les offsets actuels
 	    updateProjectionMatrix();
@@ -649,97 +612,33 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 
         if (isRunMode.get()) {
             boolean is_running = updatePositions();
-            List<Vertex> updatedVertices = List.of(getPositions());
-            for (int i = 0; i < updatedVertices.size(); i++) {
-                Vertex v = vertices.get(i);
-                // Mise à jour des coordonnées des sommets
-                v.updatePosition(updatedVertices.get(i).getX(), updatedVertices.get(i).getY());
-            }
+			if (!is_running) {
+				// Si la simulation est terminée, on passe en mode sélection
+				setMode(GraphData.GraphMode.SELECTION);
+			} else {
+				List<Vertex> updatedVertices = List.of(getPositions());
+				for (int i = 0; i < updatedVertices.size(); i++) {
+					Vertex v = vertices.get(i);
+					// Mise à jour des coordonnées des sommets
+					v.updatePosition(updatedVertices.get(i).getX(), updatedVertices.get(i).getY());
+				}
+			}
         }
 
         prepareVertexRenderData();
 	    prepareEdgeRenderData();
-
-	    // === Envoi des données GPU ===
-	    // Sommets
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexPoints.length * Float.BYTES, FloatBuffer.wrap(vertexPoints));
-
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexSizeBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexSizes.length * Float.BYTES, FloatBuffer.wrap(vertexSizes));
-
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexColorBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexColors.length * Float.BYTES, FloatBuffer.wrap(vertexColors));
-
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexVisibilityBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexVisibility.length * Float.BYTES, FloatBuffer.wrap(vertexVisibility));
-
-
-	    // === Affichage des sommets ===
-	    gl.glUseProgram(pointsShaderProgram);
-
-	    gl.glEnableVertexAttribArray(0); // position
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexBuffer);
-	    gl.glVertexAttribPointer(0, 2, GL4.GL_FLOAT, false, 0, 0);
-
-	    gl.glEnableVertexAttribArray(1); // size
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexSizeBuffer);
-	    gl.glVertexAttribPointer(1, 1, GL4.GL_FLOAT, false, 0, 0);
-
-	    gl.glEnableVertexAttribArray(2); // color
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexColorBuffer);
-	    gl.glVertexAttribPointer(2, 3, GL4.GL_FLOAT, false, 0, 0);
-	    
-	    gl.glEnableVertexAttribArray(3); // visibility
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexVisibilityBuffer);
-	    gl.glVertexAttribPointer(3, 1, GL4.GL_FLOAT, false, 0, 0);
-
-	    // Matrice de projection (identité ou zoom plus tard)
-	    int transformLoc = gl.glGetUniformLocation(pointsShaderProgram, "u_transform");
-	    gl.glUniformMatrix4fv(transformLoc, 1, false, projectionMatrix);
-
-	    // Dessin des points
-	    gl.glDrawArrays(GL4.GL_POINTS, 0, vertices.size());
-	    
-	    // Arêtes
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgePoints.length * Float.BYTES, FloatBuffer.wrap(edgePoints));
-
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeColorBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgeColors.length * Float.BYTES, FloatBuffer.wrap(edgeColors));
-
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeSizeBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgeSizes.length * Float.BYTES, FloatBuffer.wrap(edgeSizes));
-	    
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeVisibilityBuffer);
-	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgeVisibility.length * Float.BYTES, FloatBuffer.wrap(edgeVisibility));
-
-	    // === Affichage des arêtes ===
-	    gl.glUseProgram(edgesShaderProgram);
-
-	    gl.glEnableVertexAttribArray(0); // position
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeBuffer);
-	    gl.glVertexAttribPointer(0, 2, GL4.GL_FLOAT, false, 0, 0);
-
-	    gl.glEnableVertexAttribArray(1); // color
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeColorBuffer);
-	    gl.glVertexAttribPointer(1, 3, GL4.GL_FLOAT, false, 0, 0);
-
-	    gl.glEnableVertexAttribArray(2); // size
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeSizeBuffer);
-	    gl.glVertexAttribPointer(2, 1, GL4.GL_FLOAT, false, 0, 0);
-	    
-	    gl.glEnableVertexAttribArray(3); // visibility
-	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeVisibilityBuffer);
-	    gl.glVertexAttribPointer(3, 1, GL4.GL_FLOAT, false, 0, 0);
-
-	    int transformLocEdges = gl.glGetUniformLocation(edgesShaderProgram, "u_transform");
-	    gl.glUniformMatrix4fv(transformLocEdges, 1, false, projectionMatrix);
-
-	    // Dessin des lignes (2 points par arête)
-	    gl.glDrawArrays(GL4.GL_LINES, 0, edges.size() * 2);
+	    renderVertices(gl);
+	    renderEdges(gl);
     }
 
+	/**
+	 * Réajuster la matrice de projection en fonction des nouvelles dimensions de la fenêtre
+	 * @param drawable Drawable OpenGL (GLAutoDrawable) utilisé pour dessiner sur la fenêtre
+	 * @param x Coordonnée X de l'angle inférieur gauche de la nouvelle fenêtre
+	 * @param y Coordonnée Y de l'angle inférieur gauche de la nouvelle fenêtre
+	 * @param width Nouvelle largeur de la fenêtre en pixels
+	 * @param height Nouvelle hauteur de la fenêtre en pixels
+	 */
     @Override
     public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
 	    // Réajustement de la matrice de projection pour tenir compte de la taille de la fenêtre
@@ -761,6 +660,9 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    this.projectionMatrix = FloatBuffer.wrap(orthoMatrix);
     }
 
+	/**
+	 * Arrête l'animation et libère la mémoire allouée
+	 */
     @Override
     public void stop() {
         if (animator != null) {
@@ -781,75 +683,20 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	 * @see GraphData.SimilitudeMode
 	 * @see GraphData.NodeCommunity
      */
+	@SuppressWarnings("unused")
     private void testInit() {
-        // Initialisation du graphe avec le fichier à charger, la méthode de similitude et la méthode de détection de communautés
-        String sample1 = "samples/iris.csv";
-        String sample2 = "samples/predicancerNUadd9239.csv";
-        initGraphCsv(sample1, GraphData.SimilitudeMode.CORRELATION, GraphData.NodeCommunity.LOUVAIN);
+        String sample1 = "samples/iris.csv"; // Fichier d'exemple à 150 sommets
+        String sample2 = "samples/predicancerNUadd9239.csv"; // Fichier d'exemple à 9238 sommets
+		int edge_factor = 5; // Facteur d'arêtes souhaité par l'utilisateur (plus il est élevé, plus le graphe sera dense)
+
+		// Initialisation du graphe avec les données du fichier .csv
+        initGraphCsv(sample2, GraphData.SimilitudeMode.CORRELATION, GraphData.NodeCommunity.LOUVAIN, edge_factor);
 
         setScreenSize(WIDTH, HEIGHT); // Taille de l'écran du graphe
-        setBackgroundColor(0.0f, 0.0f, 0.0f); // Couleur de fond du graphe
+        setBackgroundColor(bg_color_r, bg_color_g, bg_color_r); // Couleur de fond du graphe
         setUpscale(GRAPH_UPSCALE); // Facteur d'agrandissement pour le graphe
         setInitialNodeSize(15); // Taille initiale d'un sommet
         setDegreeScaleFactor(0.15); // Facteur d'agrandissement selon le degré d'un sommet
-    }
-
-
-
-
-    /**
-     * Exemple d'actions sur le graphe (en attendant l'interface graphique)
-     */
-    private void testActions() {
-
-        Timeline tl1 = new Timeline(
-                new KeyFrame(Duration.seconds(15), e -> {
-                    setMode(GraphData.GraphMode.SELECTION);
-                    System.out.print("Switch to " + getMode());
-                    System.out.println(" - Vous pouvez sélectionner et déplacer des sommets");
-                })
-        );
-        tl1.setCycleCount(1);
-        tl1.play();
-
-		Timeline tl2 = new Timeline(
-				new KeyFrame(Duration.seconds(20), e -> {
-					setMode(GraphData.GraphMode.DELETE);
-					System.out.print("Switch to " + getMode());
-					System.out.println(" - Vous pouvez supprimer des sommets");
-				})
-		);
-		tl2.setCycleCount(1);
-		tl2.play();
-
-        Timeline tl5 = new Timeline(
-                new KeyFrame(Duration.seconds(30), e -> {
-                    setMode(GraphData.GraphMode.RUN);
-                    System.out.print("Back to " + getMode());
-                    System.out.println(" - Exécution du graphe (en mouvement)");
-                })
-        );
-        tl5.setCycleCount(1);
-        tl5.play();
-
-        /*Timeline tl6 = new Timeline(
-                new KeyFrame(Duration.seconds(55), e -> {
-                    setMiniumDegree(10);
-                    System.out.println("Remove nodes with degree < 10");
-                })
-        );
-        tl6.setCycleCount(1);
-        tl6.play();
-
-        Timeline tl7 = new Timeline(
-                new KeyFrame(Duration.seconds(60), e -> {
-                    setMiniumDegree(0);
-                    System.out.println("Reset minimum degree restriction");
-                })
-        );
-        tl7.setCycleCount(1);
-        tl7.play();*/
-
     }
 
 
@@ -864,12 +711,13 @@ public class Graph extends Application implements GLEventListener, GraphSettings
      * @param path Chemin du fichier .csv à charger
      * @param mode Mode de similitude à utiliser
      * @param community Mode de détection de communautés à utiliser
+	 * @param edge_factor Ratio d'arêtes souhaité par l'utilisateur (plus il est élevé, plus le graphe sera dense)
      * @return les données du fichier .csv
      * @see GraphData.SimilitudeMode
      * @see GraphData.NodeCommunity
      */
     @Override
-    public double[][] initGraphCsv(String path, GraphData.SimilitudeMode mode, GraphData.NodeCommunity community) {
+    public double[][] initGraphCsv(String path, GraphData.SimilitudeMode mode, GraphData.NodeCommunity community, int edge_factor) {
         if (path == null || path.isEmpty())
             throw new RuntimeException("initGraphCsv : Chemin du fichier non spécifié.");
 
@@ -881,19 +729,15 @@ public class Graph extends Application implements GLEventListener, GraphSettings
             throw new RuntimeException("initGraphCsv : Mode de similitude non spécifié.");
         int modeSimilitude = getModeSimilitude(mode);
 
-        init_metadata = computeThreshold(modeSimilitude, 5);
+        init_metadata = computeThreshold(modeSimilitude, edge_factor);
         if (init_metadata == null)
             throw new RuntimeException("initGraphCsv : Une erreur est survenue lors du calcul des seuils.");
 
         double recommendedThreshold = init_metadata.getEdgeThreshold();
         double recommendedAntiThreshold = init_metadata.getAntiThreshold();
 
-        System.out.println("Seuil recommandé pour les arêtes : " + recommendedThreshold);
-        System.out.println("Seuil recommandé pour les anti-arêtes : " + recommendedAntiThreshold);
-
-        // Valeurs imposées pour le moment (à modifier)
-//        recommendedThreshold = 0.966;
-//        recommendedAntiThreshold = 0.6;
+        System.out.println("Recommended threshold: " + recommendedThreshold);
+        System.out.println("Recommended anti-threshold: " + recommendedAntiThreshold);
 
         // Déterminer le mode de détection de communautés à utiliser
         if (community == null)
@@ -936,7 +780,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
             throw new RuntimeException("setScreenSize : Taille de l'écran (" + width + "x" + height + ") non valide.");
         WIDTH = width;
         HEIGHT = height;
-        //setDimension(WIDTH, HEIGHT); // TODO (toujours compliqué côté C)
+        //setDimension(WIDTH, HEIGHT); // TODO (la méthode setDimension ne fonctionne pas correctement dans le code C)
     }
 
 	/**
@@ -969,7 +813,6 @@ public class Graph extends Application implements GLEventListener, GraphSettings
      */
     @Override
     public void setInitialNodeSize(double size) {
-		System.out.println("setInitialNodeSize : " + size);
         if (size <= 0)
             throw new RuntimeException("setInitialNodeSize : Taille initiale d'un sommet (" + size + ") non valide.");
         Vertex.initial_node_size = size;
@@ -1023,8 +866,6 @@ public class Graph extends Application implements GLEventListener, GraphSettings
         // Utiliser Platform.runLater pour s'assurer que les modifications
         // des propriétés JavaFX sont faites sur le thread JavaFX
         Platform.runLater(() -> {
-            System.out.println("Changement de mode vers: " + mode);
-            
             // Définir le nouveau mode
             isRunMode.set(mode == GraphData.GraphMode.RUN);
             isSelectionMode.set(mode == GraphData.GraphMode.SELECTION);
@@ -1033,13 +874,13 @@ public class Graph extends Application implements GLEventListener, GraphSettings
             
             // Afficher un message selon le mode activé
             if (mode == GraphData.GraphMode.RUN) {
-                System.out.println("Back to RUN - Exécution du graphe (en mouvement)");
+                System.out.println("Switch to RUN");
             } else if (mode == GraphData.GraphMode.SELECTION) {
-                System.out.println("Switch to SELECTION - Vous pouvez sélectionner et déplacer des sommets");
+                System.out.println("Switch to SELECTION - You can select and move vertices");
             } else if (mode == GraphData.GraphMode.MOVE) {
-                System.out.println("Switch to MOVE - Vous pouvez vous déplacer dans le graphe");
+                System.out.println("Switch to MOVE - You can move through the graph");
             } else if (mode == GraphData.GraphMode.DELETE) {
-                System.out.println("Switch to DELETE - Vous pouvez supprimer des sommets");
+                System.out.println("Switch to DELETE - You can delete vertices");
             }
         });
     }
@@ -1184,7 +1025,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	}
 
 	/**
-	 * @return l'histogramme // TODO
+	 * @return l'histogramme
 	 */
 	@Override
 	public int[] getHistogramme() {
@@ -1204,316 +1045,468 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	 * @param degree Degré minimum des sommets à afficher
 	 */
 	@Override
-	public void setMiniumDegree(int degree) {
+	public void setMinimumDegree(int degree) {
 		if (degree < 0)
 			throw new RuntimeException("setMiniumDegree : Degré minimum (" + degree + ") non valide.");
 		minimumDegree.set(degree);
+		for (Vertex v : vertices) {
+			v.setVisibility(v.getDegree() >= degree);
+		}
 	}
 
 	/**
 	 * @param vertex_id Identifiant du sommet à supprimer
 	 */
 	public void removeVertex(int vertex_id) {
-		// TODO
+		if (vertex_id < 0 || vertex_id >= vertices.size())
+			throw new RuntimeException("removeVertex : Identifiant du sommet (" + vertex_id + ") non valide.");
+		selectedVertex.delete();
+		System.out.println("Deleted vertex: " + selectedVertex);
+		deleteNode(selectedVertex.getId());
+		SwingUtilities.invokeLater(() -> glWindow.display());
 	}
 
 
 
 
     // -------------------------------------------------------------------------
-    // Options supplémentaires
+    // Export du graphe en PNG
     // -------------------------------------------------------------------------
 
-    /**
-     * Exporte le graphe en image PNG
-     * @param path Chemin de l'image PNG à exporter
-     */
-//    @Override
-//    public void exportToPng(GL4 gl, String path) {
-//        if (path == null || path.isEmpty()) {
-//            throw new RuntimeException("exportToPng : Chemin du fichier non spécifié.");
-//        }
-//
-//        File file = new File(path);
-//        if (file.getParentFile() != null && !file.getParentFile().exists()) {
-//            file.getParentFile().mkdirs();
-//        }
-//
-//        if (!path.toLowerCase().endsWith(".png")) {
-//            path += ".png";
-//            file = new File(path);
-//        }
-//
-//        int width = glWindow.getWidth();
-//        int height = glWindow.getHeight();
-//
-//        ByteBuffer buffer = ByteBuffer.allocateDirect(width * height * 4);
-//        buffer.order(ByteOrder.nativeOrder());
-//
-//        // Assurer que l'image est bien rendue avant lecture
-//        gl.glReadBuffer(GL4.GL_BACK); // ← CORRECTION PRINCIPALE
-//        gl.glFlush();
-//        gl.glFinish();
-//
-//        gl.glReadPixels(0, 0, width, height, GL4.GL_RGBA, GL4.GL_UNSIGNED_BYTE, buffer);
-//
-//        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-//
-//        buffer.rewind();
-//        for (int y = height - 1; y >= 0; y--) {
-//            for (int x = 0; x < width; x++) {
-//                int r = buffer.get() & 0xFF;
-//                int g = buffer.get() & 0xFF;
-//                int b = buffer.get() & 0xFF;
-//                int a = buffer.get() & 0xFF;
-//
-//                int pixel = (a << 24) | (r << 16) | (g << 8) | b;
-//                image.setRGB(x, height - y - 1, pixel);
-//            }
-//        }
-//
-//        try {
-//            ImageIO.write(image, "PNG", file);
-//            System.out.println("Image exportée avec succès : " + path);
-//        } catch (IOException e) {
-//            throw new RuntimeException("Erreur lors de l'exportation de l'image : " + e.getMessage(), e);
-//        }
-//    }
-    
-    @Override
-    public void exportToPng(GL4 gl, String path) {
-        if (path == null || path.isEmpty()) {
-            throw new RuntimeException("exportToPng : Chemin du fichier non spécifié.");
-        }
+	/**
+	 * Planifie l'exportation de l'image afin qu'elle s'effectue dans le thread OpenGL.
+	 * Cela garantit que le contexte GL est valide au moment de l'export.
+	 * @param filename Nom du fichier PNG à exporter
+	 */
+	@Override
+	public void exportToPng(final String filename) {
+	    // Créer le répertoire d'exportation s'il n'existe pas
+	    File captureDir = new File(IMAGE_EXPORT_PATH);
+	    if (!captureDir.exists()) {
+	        if (!captureDir.mkdir()) {
+	            System.err.println("Failed to create '" + IMAGE_EXPORT_PATH + "' directory");
+	            return;
+	        }
+	    }
 
-        File file = new File(path);
-        if (file.getParentFile() != null && !file.getParentFile().exists()) {
-            file.getParentFile().mkdirs();
-        }
+		// Vérifie si on est sur le thread OpenGL
+	    if (animator != null) {
+			// Demander une action de rendu unique qui exécutera l'exportation sur le thread OpenGL
+			glWindow.invoke(true,drawable -> {
+				exportToPngAux(drawable.getGL().getGL4(), IMAGE_EXPORT_PATH + "/" + filename);
+				return true;
+			});
+	    } else {
+	        System.err.println("Animation is not active, cannot export");
+	    }
+	}
 
-        if (!path.toLowerCase().endsWith(".png")) {
-            path += ".png";
-            file = new File(path);
-        }
+	/**
+	 * Planifie l'exportation de l'image améliorée afin qu'elle s'effectue dans le thread OpenGL.
+	 * Cela garantit que le contexte GL est valide au moment de l'export.
+	 * @param filename Nom du fichier PNG à exporter
+	 */
+	@Override
+	public void upgradedExportToPng(final String filename) {
+		// Créer le répertoire d'exportation s'il n'existe pas
+		File captureDir = new File(IMAGE_EXPORT_PATH);
+		if (!captureDir.exists()) {
+			if (!captureDir.mkdir()) {
+				System.err.println("Failed to create '" + IMAGE_EXPORT_PATH + "' directory");
+				return;
+			}
+		}
 
-        int width = glWindow.getWidth();
-        int height = glWindow.getHeight();
+		// Vérifie si on est sur le thread OpenGL
+		if (animator != null) {
+			// Demander une action de rendu unique qui exécutera l'exportation sur le thread OpenGL
+			glWindow.invoke(true, drawable -> {
+				upgradedExportToPngAux(drawable.getGL().getGL4(), IMAGE_EXPORT_PATH + "/" + filename);
+				return true;
+			});
 
-        // Enregistrer l'état complet des ressources OpenGL
-        int[] prevVAO = new int[1];
-        gl.glGetIntegerv(GL4.GL_VERTEX_ARRAY_BINDING, prevVAO, 0);
-        
-        int[] prevArrayBuffer = new int[1];
-        gl.glGetIntegerv(GL4.GL_ARRAY_BUFFER_BINDING, prevArrayBuffer, 0);
-        
-        int[] prevProgram = new int[1];
-        gl.glGetIntegerv(GL4.GL_CURRENT_PROGRAM, prevProgram, 0);
-        
-        int[] prevFramebuffer = new int[1];
-        gl.glGetIntegerv(GL4.GL_FRAMEBUFFER_BINDING, prevFramebuffer, 0);
-        
-        int[] prevViewport = new int[4];
-        gl.glGetIntegerv(GL4.GL_VIEWPORT, prevViewport, 0);
+		} else {
+			System.err.println("Animation is not active, cannot export");
+		}
+	}
 
-        // Sauvegarder l'état des attributs de vertex
-        boolean[] vertexAttribEnabled = new boolean[3];
-        for (int i = 0; i < 3; i++) {
-            int[] enabled = new int[1];
-            gl.glGetVertexAttribiv(i, GL4.GL_VERTEX_ATTRIB_ARRAY_ENABLED, enabled, 0);
-            vertexAttribEnabled[i] = (enabled[0] != 0);
-        }
+	/**
+	 * Exporte le rendu OpenGL actuel vers une image PNG sans perturber l’état d’affichage courant. Crée un framebuffer hors écran pour le rendu.
+	 * @param gl Contexte OpenGL
+	 * @param path Chemin du fichier PNG à exporter
+	 */
+	private void exportToPngAux(GL4 gl, String path) {
+		System.out.println("Exportation in progress. Please wait...");
 
-        // Créer un framebuffer et une texture pour le rendu hors écran
-        int[] framebuffer = new int[1];
-        int[] texture = new int[1];
-        gl.glGenFramebuffers(1, framebuffer, 0);
-        gl.glGenTextures(1, texture, 0);
+	    // Store current viewport dimensions
+	    int[] viewport = new int[4];
+	    gl.glGetIntegerv(GL4.GL_VIEWPORT, viewport, 0);
+	    int viewportWidth = viewport[2];
+	    int viewportHeight = viewport[3];
 
-        // Configurer la texture
-        gl.glBindTexture(GL4.GL_TEXTURE_2D, texture[0]);
-        gl.glTexImage2D(GL4.GL_TEXTURE_2D, 0, GL4.GL_RGBA, width, height, 0, GL4.GL_RGBA, GL4.GL_UNSIGNED_BYTE, null);
-        gl.glTexParameteri(GL4.GL_TEXTURE_2D, GL4.GL_TEXTURE_MIN_FILTER, GL4.GL_LINEAR);
-        gl.glTexParameteri(GL4.GL_TEXTURE_2D, GL4.GL_TEXTURE_MAG_FILTER, GL4.GL_LINEAR);
-        
-        // Attacher la texture au framebuffer
-        gl.glBindFramebuffer(GL4.GL_FRAMEBUFFER, framebuffer[0]);
-        gl.glFramebufferTexture2D(GL4.GL_FRAMEBUFFER, GL4.GL_COLOR_ATTACHMENT0, GL4.GL_TEXTURE_2D, texture[0], 0);
+		// Remember the current framebuffer
+	    int[] currentFBO = new int[1];
+	    gl.glGetIntegerv(GL4.GL_FRAMEBUFFER_BINDING, currentFBO, 0);
 
-        // Vérifier l'état du framebuffer
-        if (gl.glCheckFramebufferStatus(GL4.GL_FRAMEBUFFER) != GL4.GL_FRAMEBUFFER_COMPLETE) {
-            throw new RuntimeException("Framebuffer incomplet.");
-        }
+	    // Arrays to hold generated OpenGL objects
+	    int[] fbo = new int[1];
+	    int[] textureId = new int[1];
+	    int[] rbo = new int[1];
 
-        // Configuration du viewport pour correspondre à la taille de la texture
-        gl.glViewport(0, 0, width, height);
-        
-        // Effacer le buffer
-        gl.glClear(GL4.GL_COLOR_BUFFER_BIT | GL4.GL_DEPTH_BUFFER_BIT);
-        
-        // Dessiner les cercles (utiliser un état temporaire)
-        drawCircleForExport(gl, 0.0, 0.0, 1, 200);
-        drawCircleForExport(gl, 0.5, 0.5, 1, 200);
+	    try {
+	        // Create a framebuffer object (FBO)
+	        gl.glGenFramebuffers(1, fbo, 0);
+	        gl.glBindFramebuffer(GL4.GL_FRAMEBUFFER, fbo[0]);
 
-        // Lire le contenu du framebuffer
-        ByteBuffer buffer = ByteBuffer.allocateDirect(width * height * 4);
-        buffer.order(ByteOrder.nativeOrder());
-        gl.glReadPixels(0, 0, width, height, GL4.GL_RGBA, GL4.GL_UNSIGNED_BYTE, buffer);
+	        // Create a texture to render to
+	        gl.glGenTextures(1, textureId, 0);
+	        gl.glBindTexture(GL4.GL_TEXTURE_2D, textureId[0]);
 
-        // Convertir en image
-        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        buffer.rewind();
-        for (int y = height - 1; y >= 0; y--) {
-            for (int x = 0; x < width; x++) {
-                int r = buffer.get() & 0xFF;
-                int g = buffer.get() & 0xFF;
-                int b = buffer.get() & 0xFF;
-                int a = buffer.get() & 0xFF;
-                int pixel = (a << 24) | (r << 16) | (g << 8) | b;
-                image.setRGB(x, height - y - 1, pixel);
-            }
-        }
+	        // Make sure we use a supported internal format
+	        gl.glTexImage2D(GL4.GL_TEXTURE_2D, 0, GL4.GL_RGBA8,
+					viewportWidth, viewportHeight,
+	                        0, GL4.GL_RGBA, GL4.GL_UNSIGNED_BYTE, null);
 
-        // Sauvegarder l'image
-        try {
-            ImageIO.write(image, "PNG", file);
-            System.out.println("Image exportée avec succès : " + path);
-        } catch (IOException e) {
-            throw new RuntimeException("Erreur lors de l'exportation de l'image : " + e.getMessage(), e);
-        }
+	        gl.glTexParameteri(GL4.GL_TEXTURE_2D, GL4.GL_TEXTURE_MIN_FILTER, GL4.GL_LINEAR);
+	        gl.glTexParameteri(GL4.GL_TEXTURE_2D, GL4.GL_TEXTURE_MAG_FILTER, GL4.GL_LINEAR);
+	        gl.glTexParameteri(GL4.GL_TEXTURE_2D, GL4.GL_TEXTURE_WRAP_S, GL4.GL_CLAMP_TO_EDGE);
+	        gl.glTexParameteri(GL4.GL_TEXTURE_2D, GL4.GL_TEXTURE_WRAP_T, GL4.GL_CLAMP_TO_EDGE);
 
-        // Nettoyer les ressources temporaires
-        gl.glDeleteFramebuffers(1, framebuffer, 0);
-        gl.glDeleteTextures(1, texture, 0);
+	        // Attach the texture to the FBO
+	        gl.glFramebufferTexture2D(GL4.GL_FRAMEBUFFER, GL4.GL_COLOR_ATTACHMENT0,
+	                                  GL4.GL_TEXTURE_2D, textureId[0], 0);
 
-        // Restaurer l'état OpenGL précédent
-        gl.glViewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
-        gl.glBindFramebuffer(GL4.GL_FRAMEBUFFER, prevFramebuffer[0]);
-        gl.glUseProgram(prevProgram[0]);
-        gl.glBindVertexArray(prevVAO[0]);
-        gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, prevArrayBuffer[0]);
-        
-        // Restaurer les attributs de vertex
-        for (int i = 0; i < 3; i++) {
-            if (vertexAttribEnabled[i]) {
-                gl.glEnableVertexAttribArray(i);
-            } else {
-                gl.glDisableVertexAttribArray(i);
-            }
-        }
-        
-        // Réinitialisation des buffers OpenGL
-        reinitRender(gl);
-    }
+	        // Create a renderbuffer object for depth
+	        gl.glGenRenderbuffers(1, rbo, 0);
+	        gl.glBindRenderbuffer(GL4.GL_RENDERBUFFER, rbo[0]);
+	        gl.glRenderbufferStorage(GL4.GL_RENDERBUFFER, GL4.GL_DEPTH_COMPONENT24,
+					viewportWidth, viewportHeight);
 
-    // Méthode pour dessiner un cercle spécifiquement pour l'export
-    private void drawCircleForExport(GL4 gl, double cx, double cy, double radius, int segments) {
-        // Récupérer les dimensions actuelles pour calculer le ratio d'aspect
-        int width = glWindow.getWidth();
-        int height = glWindow.getHeight();
-        float aspectRatio = (float)width / (float)height;
-        
-        // Shaders avec correction d'aspect ratio
-        String vertexShaderSource = 
-            "#version 400\n" +
-            "layout(location = 0) in vec2 inPosition;\n" +
-            "uniform float u_aspectRatio;\n" +  // Ajouter un uniform pour le ratio d'aspect
-            "void main() {\n" +
-            "    // Appliquer la correction d'aspect ratio\n" +
-            "    vec2 correctedPos = vec2(inPosition.x, inPosition.y * u_aspectRatio);\n" +
-            "    gl_Position = vec4(correctedPos, 0.0, 1.0);\n" +
-            "}\n";
-        
-        String fragmentShaderSource =
-				"""
-						#version 400
-						out vec4 FragColor;
-						void main() {
-						    FragColor = vec4(1.0, 0.0, 0.0, 1.0);
-						}
-						""";
+	        // Attach the renderbuffer to the FBO
+	        gl.glFramebufferRenderbuffer(GL4.GL_FRAMEBUFFER, GL4.GL_DEPTH_ATTACHMENT,
+	                                     GL4.GL_RENDERBUFFER, rbo[0]);
 
-        // Compiler les shaders
-        int vertexShader = compileShader(gl, GL4.GL_VERTEX_SHADER, vertexShaderSource);
-        int fragmentShader = compileShader(gl, GL4.GL_FRAGMENT_SHADER, fragmentShaderSource);
+	        // Explicitly define which draw buffers to use
+	        int[] drawBuffers = {GL4.GL_COLOR_ATTACHMENT0};
+	        gl.glDrawBuffers(1, drawBuffers, 0);
 
-        // Créer le programme shader
-        int exportShaderProgram = gl.glCreateProgram();
-        gl.glAttachShader(exportShaderProgram, vertexShader);
-        gl.glAttachShader(exportShaderProgram, fragmentShader);
-        gl.glLinkProgram(exportShaderProgram);
-        gl.glUseProgram(exportShaderProgram);
-        
-        // Définir le uniform pour le ratio d'aspect
-        int aspectRatioLoc = gl.glGetUniformLocation(exportShaderProgram, "u_aspectRatio");
-        gl.glUniform1f(aspectRatioLoc, 1.0f / aspectRatio); // Inverser pour corriger en Y
+	        // Check if framebuffer is complete
+	        int status = gl.glCheckFramebufferStatus(GL4.GL_FRAMEBUFFER);
+	        if (status != GL4.GL_FRAMEBUFFER_COMPLETE) {
+	            System.err.println("Framebuffer is not complete! Status: 0x" + Integer.toHexString(status));
 
-        // Données du cercle
-        FloatBuffer circles = FloatBuffer.allocate((segments + 2) * 2);
-        circles.put((float) cx);
-        circles.put((float) cy);
-        for (int i = 0; i <= segments; i++) {
-            double angle = 2.0 * Math.PI * i / segments;
-            double x = cx + radius * Math.cos(angle);
-            double y = cy + radius * Math.sin(angle);
-            circles.put((float) x);
-            circles.put((float) y);
-        }
-        circles.flip();
+	            // Display more details about the error
+	            switch(status) {
+	                case GL4.GL_FRAMEBUFFER_UNDEFINED:
+	                    System.err.println("GL_FRAMEBUFFER_UNDEFINED");
+	                    break;
+	                case GL4.GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+	                    System.err.println("GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT");
+	                    break;
+	                case GL4.GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+	                    System.err.println("GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT");
+	                    break;
+	                case GL4.GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER:
+	                    System.err.println("GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER");
+	                    break;
+	                case GL4.GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER:
+	                    System.err.println("GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER");
+	                    break;
+	                case GL4.GL_FRAMEBUFFER_UNSUPPORTED:
+	                    System.err.println("GL_FRAMEBUFFER_UNSUPPORTED");
+	                    break;
+	                case GL4.GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE:
+	                    System.err.println("GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE");
+	                    break;
+	                case GL4.GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS:
+	                    System.err.println("GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS");
+	                    break;
+	                case 0:
+	                    System.err.println("Status is 0, which indicates a previous OpenGL error");
+	                    break;
+	                default:
+	                    System.err.println("Unknown framebuffer status error");
+	            }
+	            return;
+	        }
 
-        // Créer VAO et VBO temporaires
-        int[] exportVAO = new int[1];
-        gl.glGenVertexArrays(1, exportVAO, 0);
-        gl.glBindVertexArray(exportVAO[0]);
+	        // Clear the framebuffer with background
+	        gl.glViewport(0, 0, viewportWidth, viewportHeight);
+	        gl.glClearColor(bg_color_r, bg_color_g, bg_color_b, 1.0f);
+	        gl.glClear(GL4.GL_COLOR_BUFFER_BIT | GL4.GL_DEPTH_BUFFER_BIT);
 
-        int[] exportVBO = new int[1];
-        gl.glGenBuffers(1, exportVBO, 0);
-        gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, exportVBO[0]);
-        gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) circles.limit() * Float.BYTES, circles, GL4.GL_STATIC_DRAW);
+	        // Update projection matrix
+	        updateProjectionMatrix();
 
-        // Configurer les attributs de vertex
-        gl.glVertexAttribPointer(0, 2, GL4.GL_FLOAT, false, 0, 0);
-        gl.glEnableVertexAttribArray(0);
+	        // Prepare data for rendering
+	        prepareVertexRenderData();
+	        prepareEdgeRenderData();
 
-        // Dessiner le cercle
-        gl.glDrawArrays(GL4.GL_TRIANGLE_FAN, 0, segments + 2);
+	        // Render the graph to the offscreen buffer
+	        renderVertices(gl);
+	        renderEdges(gl);
+	        
+	        gl.glFinish();
 
-        // Nettoyer les ressources temporaires
-        gl.glDeleteBuffers(1, exportVBO, 0);
-        gl.glDeleteVertexArrays(1, exportVAO, 0);
-        gl.glDeleteShader(vertexShader);
-        gl.glDeleteShader(fragmentShader);
-        gl.glDeleteProgram(exportShaderProgram);
-    }
+	        // Read the pixels from the framebuffer
+	        ByteBuffer buffer = ByteBuffer.allocateDirect(viewportWidth * viewportHeight * 4).order(ByteOrder.nativeOrder());
+	        gl.glReadBuffer(GL4.GL_COLOR_ATTACHMENT0);
+	        gl.glReadPixels(0, 0, viewportWidth, viewportHeight, GL4.GL_RGBA, GL4.GL_UNSIGNED_BYTE, buffer);
 
-    // Méthode pour réinitialiser le rendu après l'export
-    private void reinitRender(GL4 gl) {
-        // Mettre à jour les données de rendu
-        prepareVertexRenderData();
-        prepareEdgeRenderData();
-        
-        // Recharger les données dans les buffers GPU
-        gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexBuffer);
-        gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexPoints.length * Float.BYTES, FloatBuffer.wrap(vertexPoints));
-        
-        gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexSizeBuffer);
-        gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexSizes.length * Float.BYTES, FloatBuffer.wrap(vertexSizes));
-        
-        gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexColorBuffer);
-        gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexColors.length * Float.BYTES, FloatBuffer.wrap(vertexColors));
-        
-        gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeBuffer);
-        gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgePoints.length * Float.BYTES, FloatBuffer.wrap(edgePoints));
-        
-        gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeColorBuffer);
-        gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgeColors.length * Float.BYTES, FloatBuffer.wrap(edgeColors));
-        
-        gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeSizeBuffer);
-        gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgeSizes.length * Float.BYTES, FloatBuffer.wrap(edgeSizes));
-    }
+	        // Flip the image vertically (OpenGL has origin at bottom left, most image formats at top left)
+	        BufferedImage image = new BufferedImage(viewportWidth, viewportHeight, BufferedImage.TYPE_INT_ARGB);
+	        byte[] row = new byte[viewportWidth * 4];
+	        for (int y = 0; y < viewportHeight; y++) {
+	            int rowStart = (viewportHeight - 1 - y) * viewportWidth * 4;
+	            buffer.position(rowStart);
+	            buffer.get(row);
+	            for (int x = 0; x < viewportWidth; x++) {
+	                int i = x * 4;
+	                int r = row[i] & 0xFF;
+	                int g = row[i + 1] & 0xFF;
+	                int b = row[i + 2] & 0xFF;
+	                int a = row[i + 3] & 0xFF;
+	                int argb = (a << 24) | (r << 16) | (g << 8) | b;
+	                image.setRGB(x, y, argb);
+	            }
+	        }
 
+	        try {
+	            File outputFile = new File(path);
+	            ImageIO.write(image, "png", outputFile);
+	            System.out.println("Image successfully exported to " + path);
+	        } catch (IOException e) {
+	            System.err.println("Error writing PNG file: " + e.getMessage());
+	            throw new RuntimeException(e);
+	        }
 
+	    } catch (Exception e) {
+	        System.err.println("Exception in exportToPng: " + e.getMessage());
+			throw new RuntimeException(e);
+	    } finally {
+	        // Clean up resources
+	        if (textureId[0] > 0) {
+	            gl.glDeleteTextures(1, textureId, 0);
+	        }
+	        if (rbo[0] > 0) {
+	            gl.glDeleteRenderbuffers(1, rbo, 0);
+	        }
+	        if (fbo[0] > 0) {
+	            gl.glDeleteFramebuffers(1, fbo, 0);
+	        }
 
+	        // Restore original framebuffer
+	        gl.glBindFramebuffer(GL4.GL_FRAMEBUFFER, currentFBO[0]);
 
+	        // Restore viewport
+	        gl.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+	    }
+	}
+
+	/**
+	 * Exporte le rendu OpenGL actuel vers une image améliorée PNG sans perturber l’état d’affichage courant. Crée un framebuffer hors écran pour le rendu.
+	 * @param gl Contexte OpenGL
+	 * @param path Chemin du fichier PNG à exporter
+	 */
+	private void upgradedExportToPngAux(GL4 gl, String path) {
+		System.out.println("Upgraded exportation in progress. Please wait...");
+
+	    // Store current viewport dimensions
+	    int[] viewport = new int[4];
+	    gl.glGetIntegerv(GL4.GL_VIEWPORT, viewport, 0);
+	    int viewportWidth = viewport[2];
+	    int viewportHeight = viewport[3];
+
+	    // Set the export size for higher resolution
+	    int exportWidth = viewportWidth * 15;
+	    int exportHeight = viewportHeight * 15;
+
+	    // Remember the current framebuffer
+	    int[] currentFBO = new int[1];
+	    gl.glGetIntegerv(GL4.GL_FRAMEBUFFER_BINDING, currentFBO, 0);
+	    
+	    // Store current blend state
+	    byte[] blendEnabled = new byte[1];
+	    gl.glGetBooleanv(GL4.GL_BLEND, blendEnabled, 0);
+	    
+	    // Store current blend functions
+	    int[] blendSrc = new int[1];
+	    int[] blendDst = new int[1];
+	    gl.glGetIntegerv(GL4.GL_BLEND_SRC_ALPHA, blendSrc, 0);
+	    gl.glGetIntegerv(GL4.GL_BLEND_DST_ALPHA, blendDst, 0);
+
+	    // Arrays to hold generated OpenGL objects
+	    int[] fbo = new int[1];
+	    int[] textureId = new int[1];
+	    int[] rbo = new int[1];
+
+	    try {
+	        // Enable alpha blending specifically for the export
+	        gl.glEnable(GL4.GL_BLEND);
+	        gl.glBlendFunc(GL4.GL_SRC_ALPHA, GL4.GL_ONE_MINUS_SRC_ALPHA);
+	        
+	        // Create a framebuffer object (FBO)
+	        gl.glGenFramebuffers(1, fbo, 0);
+	        gl.glBindFramebuffer(GL4.GL_FRAMEBUFFER, fbo[0]);
+
+	        // Create a texture to render to
+	        gl.glGenTextures(1, textureId, 0);
+	        gl.glBindTexture(GL4.GL_TEXTURE_2D, textureId[0]);
+
+	        // Make sure we use a supported internal format
+	        gl.glTexImage2D(GL4.GL_TEXTURE_2D, 0, GL4.GL_RGBA8,
+	                        exportWidth, exportHeight,
+	                        0, GL4.GL_RGBA, GL4.GL_UNSIGNED_BYTE, null);
+
+	        gl.glTexParameteri(GL4.GL_TEXTURE_2D, GL4.GL_TEXTURE_MIN_FILTER, GL4.GL_LINEAR);
+	        gl.glTexParameteri(GL4.GL_TEXTURE_2D, GL4.GL_TEXTURE_MAG_FILTER, GL4.GL_LINEAR);
+	        gl.glTexParameteri(GL4.GL_TEXTURE_2D, GL4.GL_TEXTURE_WRAP_S, GL4.GL_CLAMP_TO_EDGE);
+	        gl.glTexParameteri(GL4.GL_TEXTURE_2D, GL4.GL_TEXTURE_WRAP_T, GL4.GL_CLAMP_TO_EDGE);
+
+	        // Attach the texture to the FBO
+	        gl.glFramebufferTexture2D(GL4.GL_FRAMEBUFFER, GL4.GL_COLOR_ATTACHMENT0,
+	                                  GL4.GL_TEXTURE_2D, textureId[0], 0);
+
+	        // Create a renderbuffer object for depth
+	        gl.glGenRenderbuffers(1, rbo, 0);
+	        gl.glBindRenderbuffer(GL4.GL_RENDERBUFFER, rbo[0]);
+	        gl.glRenderbufferStorage(GL4.GL_RENDERBUFFER, GL4.GL_DEPTH_COMPONENT24,
+	                                 exportWidth, exportHeight);
+
+	        // Attach the renderbuffer to the FBO
+	        gl.glFramebufferRenderbuffer(GL4.GL_FRAMEBUFFER, GL4.GL_DEPTH_ATTACHMENT,
+	                                     GL4.GL_RENDERBUFFER, rbo[0]);
+
+	        // Explicitly define which draw buffers to use
+	        int[] drawBuffers = {GL4.GL_COLOR_ATTACHMENT0};
+	        gl.glDrawBuffers(1, drawBuffers, 0);
+
+	        // Check if framebuffer is complete
+	        int status = gl.glCheckFramebufferStatus(GL4.GL_FRAMEBUFFER);
+	        if (status != GL4.GL_FRAMEBUFFER_COMPLETE) {
+	            System.err.println("Framebuffer is not complete! Status: 0x" + Integer.toHexString(status));
+
+	            // Display more details about the error
+	            switch(status) {
+	                case GL4.GL_FRAMEBUFFER_UNDEFINED:
+	                    System.err.println("GL_FRAMEBUFFER_UNDEFINED");
+	                    break;
+	                case GL4.GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+	                    System.err.println("GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT");
+	                    break;
+	                case GL4.GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+	                    System.err.println("GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT");
+	                    break;
+	                case GL4.GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER:
+	                    System.err.println("GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER");
+	                    break;
+	                case GL4.GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER:
+	                    System.err.println("GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER");
+	                    break;
+	                case GL4.GL_FRAMEBUFFER_UNSUPPORTED:
+	                    System.err.println("GL_FRAMEBUFFER_UNSUPPORTED");
+	                    break;
+	                case GL4.GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE:
+	                    System.err.println("GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE");
+	                    break;
+	                case GL4.GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS:
+	                    System.err.println("GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS");
+	                    break;
+	                case 0:
+	                    System.err.println("Status is 0, which indicates a previous OpenGL error");
+	                    break;
+	                default:
+	                    System.err.println("Unknown framebuffer status error");
+	            }
+	            return;
+	        }
+
+	        // Clear the framebuffer with  background
+	        gl.glViewport(0, 0, exportWidth, exportHeight);
+	        gl.glClearColor(bg_color_r, bg_color_g, bg_color_b, 1.0f);
+	        gl.glClear(GL4.GL_COLOR_BUFFER_BIT | GL4.GL_DEPTH_BUFFER_BIT);
+
+	        // Render the graph to the offscreen buffer
+	        // Update projection matrix
+	        updateProjectionMatrix();
+
+	        // Prepare data for rendering
+	        prepareBezierRenderData();
+
+		renderDoubleCircles(gl);
+	        
+	        renderBezierCurves(gl);
+	        
+	        gl.glFinish();
+
+	        // Read the pixels from the framebuffer
+	        ByteBuffer buffer = ByteBuffer.allocateDirect(exportWidth * exportHeight * 4).order(ByteOrder.nativeOrder());
+	        gl.glReadBuffer(GL4.GL_COLOR_ATTACHMENT0);
+	        gl.glReadPixels(0, 0, exportWidth, exportHeight, GL4.GL_RGBA, GL4.GL_UNSIGNED_BYTE, buffer);
+
+	        // Flip the image vertically (OpenGL has origin at bottom left, most image formats at top left)
+	        BufferedImage image = new BufferedImage(exportWidth, exportHeight, BufferedImage.TYPE_INT_ARGB);
+	        byte[] row = new byte[exportWidth * 4];
+	        for (int y = 0; y < exportHeight; y++) {
+	            int rowStart = (exportHeight - 1 - y) * exportWidth * 4;
+	            buffer.position(rowStart);
+	            buffer.get(row);
+	            for (int x = 0; x < exportWidth; x++) {
+	                int i = x * 4;
+	                int r = row[i] & 0xFF;
+	                int g = row[i + 1] & 0xFF;
+	                int b = row[i + 2] & 0xFF;
+	                int a = row[i + 3] & 0xFF;
+	                int argb = (a << 24) | (r << 16) | (g << 8) | b;
+	                image.setRGB(x, y, argb);
+	            }
+	        }
+
+	        try {
+	            File outputFile = new File(path);
+	            ImageIO.write(image, "png", outputFile);
+				System.out.println("Upgraded image successfully exported to " + path);
+	        } catch (IOException e) {
+	            System.err.println("Error writing PNG file: " + e.getMessage());
+				throw new RuntimeException(e);
+	        }
+
+	    } catch (Exception e) {
+	        System.err.println("Exception in exportToPng: " + e.getMessage());
+			throw new RuntimeException(e);
+	    } finally {
+	        // Clean up resources
+	        if (textureId[0] > 0) {
+	            gl.glDeleteTextures(1, textureId, 0);
+	        }
+	        if (rbo[0] > 0) {
+	            gl.glDeleteRenderbuffers(1, rbo, 0);
+	        }
+	        if (fbo[0] > 0) {
+	            gl.glDeleteFramebuffers(1, fbo, 0);
+	        }
+	        
+	        // Restore original blend state
+	        if (blendEnabled[0] != 0) {
+	            gl.glEnable(GL4.GL_BLEND);
+	        } else {
+	            gl.glDisable(GL4.GL_BLEND);
+	        }
+	        
+	        // Restore original blend functions
+	        gl.glBlendFunc(blendSrc[0], blendDst[0]);
+
+	        // Restore original framebuffer
+	        gl.glBindFramebuffer(GL4.GL_FRAMEBUFFER, currentFBO[0]);
+
+	        // Restore viewport
+	        gl.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+	    }
+	}
+	
+	
+	
+	
     // -------------------------------------------------------------------------
     // Outils
     // -------------------------------------------------------------------------
@@ -1577,10 +1570,14 @@ public class Graph extends Application implements GLEventListener, GraphSettings
     
     
     // -------------------------------------------------------------------------
-    // Buffer utilities
+    // Gestion des buffers
     // -------------------------------------------------------------------------
-    
-	private void createBuffers(GL4 gl) {
+
+	/**
+	 * Crée les vertex buffers OpenGL nécessaires pour stocker les données des sommets : positions, tailles, couleurs et visibilité.
+	 * @param gl Contexte OpenGL utilisé pour allouer les buffers.
+	 */
+	private void createVertexBuffers(GL4 gl) {
 	    // Créer les buffers
 	    int[] buffers = new int[4]; // positions, tailles, couleurs, visibilités
 	    gl.glGenBuffers(4, buffers, 0);
@@ -1611,7 +1608,10 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) visibilityData.limit() * Float.BYTES, visibilityData, GL4.GL_STATIC_DRAW);
 	}
 
-	
+	/**
+	 * Crée les buffers OpenGL associés aux arêtes : positions, couleurs, tailles et visibilité. Les buffers sont initialisés sans données (null), car ils seront remplis dynamiquement.
+	 * @param gl Contexte OpenGL utilisé pour allouer les buffers.
+	 */
 	private void createEdgeBuffers(GL4 gl) {
 	    int[] buffers = new int[4];
 	    gl.glGenBuffers(4, buffers, 0);
@@ -1635,6 +1635,35 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) edgeVisibility.length * Float.BYTES, null, GL4.GL_DYNAMIC_DRAW);
 	}
 
+	/**
+	 * Crée les buffers OpenGL utilisés pour représenter les courbes de Bézier associées aux arêtes. Les buffers incluent les points de contrôle, les couleurs, tailles et visibilités, et sont initialisés pour un usage dynamique.
+	 * @param gl Contexte OpenGL utilisé pour allouer les buffers.
+	 */
+	private void createBezierBuffers(GL4 gl) {
+	    int[] buffers = new int[4];
+	    gl.glGenBuffers(4, buffers, 0);
+	    
+	    bezierBuffer = buffers[0];
+	    bezierColorBuffer = buffers[1];
+	    bezierSizeBuffer = buffers[2];
+	    bezierVisibilityBuffer = buffers[3];
+	    
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, bezierBuffer);
+	    gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) bezierPoints.length * Float.BYTES, null, GL4.GL_DYNAMIC_DRAW);
+	    
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, bezierColorBuffer);
+	    gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) bezierColors.length * Float.BYTES, null, GL4.GL_DYNAMIC_DRAW);
+	    
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, bezierSizeBuffer);
+	    gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) bezierSizes.length * Float.BYTES, null, GL4.GL_DYNAMIC_DRAW);
+	    
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, bezierVisibilityBuffer);
+	    gl.glBufferData(GL4.GL_ARRAY_BUFFER, (long) bezierVisibility.length * Float.BYTES, null, GL4.GL_DYNAMIC_DRAW);
+	}
+
+	/**
+	 * Initialise les tableaux de données nécessaires pour les sommets, les arêtes et les courbes de Bézier. Alloue l’espace mémoire en fonction du nombre de sommets et d’arêtes présents.
+	 */
 	private void initializeArrays() {
 	    int vertexCount = vertices.size();
 	    int edgeCount = edges.size();
@@ -1642,7 +1671,7 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    vertexPoints = new float[vertexCount * 2];   // x, y pour chaque sommet
 	    vertexSizes = new float[vertexCount];        // taille pour chaque sommet
 	    vertexColors = new float[vertexCount * 3];   // RGB pour chaque sommet
-	    vertexVisibility = new float[vertexCount];   // visibilité pour chaque sommet (NOUVEAU)
+	    vertexVisibility = new float[vertexCount];   // visibilité pour chaque sommet
 
 	    // Initialisation par défaut des sommets visibles
 	    for (int i = 0; i < vertexCount; i++) {
@@ -1660,10 +1689,16 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	        edgeVisibility[i * 2] = 1.0f;
 	        edgeVisibility[i * 2 + 1] = 1.0f;
 	    }
+	    
+	    // Courbe de Bezier : ajout d'un point de contrôle par arête
+	    bezierPoints = new float[edgeCount * 6];
+	    bezierColors = new float[edgeCount * 3];
+	    bezierSizes = new float[edgeCount];
+	    bezierVisibility = new float[edgeCount];
 	}
-	
+
 	/**
-	 * Prépare les données de rendu pour les sommets
+	 * Prépare les données de rendu des sommets en remplissant les tableaux des positions, tailles, couleurs RGB et visibilité à partir des objets {@code Vertex} et de leurs communautés associées.
 	 */
 	private void prepareVertexRenderData() {
 	    Vertex currentVertex;
@@ -1682,13 +1717,12 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	        vertexColors[i * 3 + 2] = currentCommunity.getB();
 
 	        // Mise à jour de la visibilité
-	        vertexVisibility[i] = currentVertex.isDeleted() ? 0.0f : 1.0f;
+	        vertexVisibility[i] = (currentVertex.isDeleted() || !currentVertex.isVisible()) ? 0.0f : 1.0f;
 	    }
 	}
 
-	
 	/**
-	 * Prépare les données de rendu pour les arêtes
+	 * Prépare les données de rendu des arêtes pour l'affichage. Calcule les positions des extrémités, les couleurs moyennes entre les communautés connectées, les tailles en fonction du poids et définit la visibilité. Seules les arêtes dépassant un seuil de corrélation sont prises en compte.
 	 */
 	private void prepareEdgeRenderData() {
 	    for (int i = 0; i < edges.size(); i++) {
@@ -1727,13 +1761,499 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 		        edgeSizes[i * 2 + 1] = size;
 		        
 		        // Visibilité - 0.0 si supprimé, 1.0 si visible
-		        float visibility = (startVertex.isDeleted() || endVertex.isDeleted()) ? 0.0f : 1.0f;
+		        boolean isHidden = 
+		        	    startVertex.isDeleted() || 
+		        	    endVertex.isDeleted() || 
+		        	    !startVertex.isVisible() || 
+		        	    !endVertex.isVisible();
+		        float visibility = isHidden ? 0.0f : 1.0f;
 		        edgeVisibility[i * 2] = visibility;
 		        edgeVisibility[i * 2 + 1] = visibility;
 		    }
 	    }
 	}
+
+	/**
+	 * Prépare les données de rendu pour les courbes de Bézier représentant les arêtes. Calcule les points de début, de fin, ainsi qu’un point de contrôle pour la courbure. Assigne des couleurs, des tailles et des niveaux de visibilité. Les courbes sont uniquement créées pour les arêtes significatives.
+	 */
+	private void prepareBezierRenderData() {
+	    for (int i = 0; i < edges.size(); i++) {
+	        Edge currentEdge = edges.get(i);
+	        
+	    	if (currentEdge.getWeight() > CORRELATION_THRESHOLD) {
+		        Vertex startVertex = currentEdge.getStart();
+		        Vertex endVertex = currentEdge.getEnd();
+		        Community startCommunity = startVertex.getCommunity();
+		        Community endCommunity = endVertex.getCommunity();
 	
+		        // Points de début de l'arête
+		        bezierPoints[i * 6] = (float) startVertex.getX();
+		        bezierPoints[i * 6 + 1] = (float) startVertex.getY();
+		        
+		        // Calculer le point de contrôle
+		        float bezierFactor = 0.2f; // Facteur qui détermine l'amplitude de la courbure
+		        float dx = (float) (endVertex.getX() - startVertex.getX());
+		        float dy = (float) (endVertex.getY() - startVertex.getY());
+
+		        // Définir un point de contrôle qui dévie légèrement de la ligne
+		        float controlX = (float) (startVertex.getX() + (dx / 2) - bezierFactor * dy);
+		        float controlY = (float) (startVertex.getY() + (dy / 2) + bezierFactor * dx);
+
+		        // Maintenant, place ce point de contrôle dans ton tableau de points d'arêtes
+		        bezierPoints[i * 6 + 2] = controlX; // Calculé plus haut
+		        bezierPoints[i * 6 + 3] = controlY;
+		        
+		        // Points de fin de l'arête
+		        bezierPoints[i * 6 + 4] = (float) endVertex.getX();
+		        bezierPoints[i * 6 + 5] = (float) endVertex.getY();
+		        
+		        // Couleur moyenne entre les deux communautés
+		        float r = (startCommunity.getR() + endCommunity.getR()) / 2.0f;
+		        float g = (startCommunity.getG() + endCommunity.getG()) / 2.0f;
+		        float b = (startCommunity.getB() + endCommunity.getB()) / 2.0f;
+		        
+		        // Couleur pour les trois points de la courbe
+	            bezierColors[i * 3] = r;
+	            bezierColors[i * 3 + 1] = g;
+	            bezierColors[i * 3 + 2] = b;
+		        
+		        // Taille pour les trois points
+		        float size = (float) currentEdge.getWeight();
+		        bezierSizes[i] = size;
+		        
+		        // Visibilité - 0.0 si supprimé, 1.0 si visible
+		        boolean isHidden = 
+		        	    startVertex.isDeleted() || 
+		        	    endVertex.isDeleted() || 
+		        	    !startVertex.isVisible() || 
+		        	    !endVertex.isVisible();
+		        float visibility = isHidden ? 0.0f : 1.0f;
+		        bezierVisibility[i] = visibility;
+		    }
+	    }
+	}
+	
+	
+	
+	
+    // -------------------------------------------------------------------------
+    // Méthodes de rendu
+    // -------------------------------------------------------------------------
+
+	/**
+	 * Rendu des sommets (points) sur la scène OpenGL.
+	 * Cette méthode met à jour les buffers GPU avec les données des sommets, notamment
+	 * leur position, taille, couleur et visibilité, puis configure les attributs de
+	 * vertex nécessaires pour le shader des points. Enfin, elle effectue le rendu
+	 * sous forme de points via `glDrawArrays`.
+	 * @param gl Contexte OpenGL utilisé pour effectuer le rendu.
+	 */
+	private void renderVertices(GL4 gl) {
+	    // === Envoi des données GPU ===
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexPoints.length * Float.BYTES, FloatBuffer.wrap(vertexPoints));
+
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexSizeBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexSizes.length * Float.BYTES, FloatBuffer.wrap(vertexSizes));
+
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexColorBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexColors.length * Float.BYTES, FloatBuffer.wrap(vertexColors));
+
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexVisibilityBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexVisibility.length * Float.BYTES, FloatBuffer.wrap(vertexVisibility));
+
+
+	    // === Affichage des sommets ===
+	    gl.glUseProgram(verticesShaderProgram);
+
+	    gl.glEnableVertexAttribArray(0); // position
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexBuffer);
+	    gl.glVertexAttribPointer(0, 2, GL4.GL_FLOAT, false, 0, 0);
+
+	    gl.glEnableVertexAttribArray(1); // size
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexSizeBuffer);
+	    gl.glVertexAttribPointer(1, 1, GL4.GL_FLOAT, false, 0, 0);
+
+	    gl.glEnableVertexAttribArray(2); // color
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexColorBuffer);
+	    gl.glVertexAttribPointer(2, 3, GL4.GL_FLOAT, false, 0, 0);
+	    
+	    gl.glEnableVertexAttribArray(3); // visibility
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexVisibilityBuffer);
+	    gl.glVertexAttribPointer(3, 1, GL4.GL_FLOAT, false, 0, 0);
+
+	    // Matrice de projection (identité ou zoom plus tard)
+	    int transformLoc = gl.glGetUniformLocation(verticesShaderProgram, "u_transform");
+	    gl.glUniformMatrix4fv(transformLoc, 1, false, projectionMatrix);
+
+	    // Dessin des points
+	    gl.glDrawArrays(GL4.GL_POINTS, 0, vertices.size());
+	}
+
+	/**
+	 * Rendu des arêtes (lignes) entre les sommets dans la scène OpenGL.
+	 * Cette méthode transmet les informations des arêtes au GPU : coordonnées des extrémités,
+	 * couleurs, tailles et visibilité. Elle configure ensuite les attributs nécessaires
+	 * pour le shader dédié aux arêtes, puis dessine les lignes à l’aide de `glDrawArrays`
+	 * avec le mode `GL_LINES`.
+	 * @param gl Contexte OpenGL utilisé pour effectuer le rendu.
+	 */
+	private void renderEdges(GL4 gl) {
+		// === Envoi des données GPU ===
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgePoints.length * Float.BYTES, FloatBuffer.wrap(edgePoints));
+
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeColorBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgeColors.length * Float.BYTES, FloatBuffer.wrap(edgeColors));
+
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeSizeBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgeSizes.length * Float.BYTES, FloatBuffer.wrap(edgeSizes));
+	    
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeVisibilityBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) edgeVisibility.length * Float.BYTES, FloatBuffer.wrap(edgeVisibility));
+
+	    // === Affichage des arêtes ===
+	    gl.glUseProgram(edgesShaderProgram);
+
+	    gl.glEnableVertexAttribArray(0); // position
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeBuffer);
+	    gl.glVertexAttribPointer(0, 2, GL4.GL_FLOAT, false, 0, 0);
+
+	    gl.glEnableVertexAttribArray(1); // color
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeColorBuffer);
+	    gl.glVertexAttribPointer(1, 3, GL4.GL_FLOAT, false, 0, 0);
+
+	    gl.glEnableVertexAttribArray(2); // size
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeSizeBuffer);
+	    gl.glVertexAttribPointer(2, 1, GL4.GL_FLOAT, false, 0, 0);
+	    
+	    gl.glEnableVertexAttribArray(3); // visibility
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, edgeVisibilityBuffer);
+	    gl.glVertexAttribPointer(3, 1, GL4.GL_FLOAT, false, 0, 0);
+
+	    int transformLocEdges = gl.glGetUniformLocation(edgesShaderProgram, "u_transform");
+	    gl.glUniformMatrix4fv(transformLocEdges, 1, false, projectionMatrix);
+
+	    // Dessin des lignes (2 points par arête)
+	    gl.glDrawArrays(GL4.GL_LINES, 0, edges.size() * 2);
+	}
+
+	/**
+	 * Rendu d’un motif de cercles concentriques autour des sommets.
+	 * Utilise un shader spécifique pour afficher des doubles cercles sur chaque sommet.
+	 * Les buffers pour position, taille, couleur et visibilité sont mis à jour puis
+	 * associés aux attributs du shader. Le rendu est ensuite effectué via `glDrawArrays`
+	 * en mode `GL_POINTS`.
+	 * @param gl Contexte OpenGL utilisé pour effectuer le rendu.
+	 */
+	private void renderDoubleCircles(GL4 gl) {
+		gl.glUseProgram(doubleCircleShaderProgram);
+        
+        gl.glEnableVertexAttribArray(0);
+        gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexBuffer);
+        gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexPoints.length * Float.BYTES, FloatBuffer.wrap(vertexPoints));
+        gl.glVertexAttribPointer(0, 2, GL4.GL_FLOAT, false, 0, 0);
+
+        gl.glEnableVertexAttribArray(1);
+        gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexSizeBuffer);
+        gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexSizes.length * Float.BYTES, FloatBuffer.wrap(vertexSizes));
+        gl.glVertexAttribPointer(1, 1, GL4.GL_FLOAT, false, 0, 0);
+
+        gl.glEnableVertexAttribArray(2);
+        gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexColorBuffer);
+        gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexColors.length * Float.BYTES, FloatBuffer.wrap(vertexColors));
+        gl.glVertexAttribPointer(2, 3, GL4.GL_FLOAT, false, 0, 0);
+
+        gl.glEnableVertexAttribArray(3);
+        gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertexVisibilityBuffer);
+        gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) vertexVisibility.length * Float.BYTES, FloatBuffer.wrap(vertexVisibility));
+        gl.glVertexAttribPointer(3, 1, GL4.GL_FLOAT, false, 0, 0);
+
+        int transformLoc = gl.glGetUniformLocation(verticesShaderProgram, "u_transform");
+        gl.glUniformMatrix4fv(transformLoc, 1, false, projectionMatrix);
+
+        gl.glDrawArrays(GL4.GL_POINTS, 0, vertices.size());
+	}
+
+	/**
+	 * Rendu de courbes de Bézier quadratiques instanciées.
+	 * Cette méthode configure les buffers et les attributs de vertex pour dessiner
+	 * des courbes de Bézier définies par trois points de contrôle (p0, p1, p2).
+	 * Chaque courbe a une couleur, une taille de trait, et une visibilité propres.
+	 * Le rendu se fait par instanciation en utilisant `glDrawArraysInstanced` avec
+	 * une interpolation segmentée.
+	 * @param gl Contexte OpenGL utilisé pour effectuer le rendu.
+	 */
+	private void renderBezierCurves(GL4 gl) {
+	    gl.glUseProgram(bezierShaderProgram);
+	    
+	    // Set up the buffer data for the shader
+	    // Upload control points to GPU
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, bezierBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) bezierPoints.length * Float.BYTES, FloatBuffer.wrap(bezierPoints));
+	    
+	    // Configure vertex attributes for the control points
+	    // Each curve has 3 control points (p0, p1, p2), each with 2 components (x, y)
+	    final int STRIDE = 6 * Float.BYTES; // 6 floats per curve (p0x, p0y, p1x, p1y, p2x, p2y)
+	    
+	    // Start point (p0)
+	    gl.glEnableVertexAttribArray(0);
+	    gl.glVertexAttribPointer(0, 2, GL4.GL_FLOAT, false, STRIDE, 0);
+	    gl.glVertexAttribDivisor(0, 1); // One value per instance
+	    
+	    // Control point (p1)
+	    gl.glEnableVertexAttribArray(1);
+	    gl.glVertexAttribPointer(1, 2, GL4.GL_FLOAT, false, STRIDE, 2 * Float.BYTES);
+	    gl.glVertexAttribDivisor(1, 1); // One value per instance
+	    
+	    // End point (p2)
+	    gl.glEnableVertexAttribArray(2);
+	    gl.glVertexAttribPointer(2, 2, GL4.GL_FLOAT, false, STRIDE, 4 * Float.BYTES);
+	    gl.glVertexAttribDivisor(2, 1); // One value per instance
+	    
+	    // Color attribute
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, bezierColorBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) bezierColors.length * Float.BYTES, FloatBuffer.wrap(bezierColors));
+	    gl.glEnableVertexAttribArray(3);
+	    gl.glVertexAttribPointer(3, 3, GL4.GL_FLOAT, false, 0, 0);
+	    gl.glVertexAttribDivisor(3, 1); // One color per curve
+	    
+	    // Size attribute
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, bezierSizeBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) bezierSizes.length * Float.BYTES, FloatBuffer.wrap(bezierSizes));
+	    gl.glEnableVertexAttribArray(4);
+	    gl.glVertexAttribPointer(4, 1, GL4.GL_FLOAT, false, 0, 0);
+	    gl.glVertexAttribDivisor(4, 1); // One size per curve
+	    
+	    // Visibility attribute
+	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, bezierVisibilityBuffer);
+	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) bezierVisibility.length * Float.BYTES, FloatBuffer.wrap(bezierVisibility));
+	    gl.glEnableVertexAttribArray(5);
+	    gl.glVertexAttribPointer(5, 1, GL4.GL_FLOAT, false, 0, 0);
+	    gl.glVertexAttribDivisor(5, 1); // One visibility value per curve
+	    
+	    // Set transformation matrix uniform
+	    int transformLoc = gl.glGetUniformLocation(bezierShaderProgram, "u_transform");
+	    gl.glUniformMatrix4fv(transformLoc, 1, false, projectionMatrix);
+	    
+	    // Draw multiple instances of the Bézier curve with different parameters
+	    final int SEGMENTS = 100; // Number of segments to render each curve with
+	    gl.glLineWidth(2f);
+	    gl.glDrawArraysInstanced(GL4.GL_LINE_STRIP, 0, SEGMENTS + 1, edges.size());
+	    
+	    // Disable vertex attributes
+	    gl.glDisableVertexAttribArray(0);
+	    gl.glDisableVertexAttribArray(1);
+	    gl.glDisableVertexAttribArray(2);
+	    gl.glDisableVertexAttribArray(3);
+	    gl.glDisableVertexAttribArray(4);
+	    gl.glDisableVertexAttribArray(5);
+	    
+	    gl.glVertexAttribDivisor(0, 0);
+	    gl.glVertexAttribDivisor(1, 0);
+	    gl.glVertexAttribDivisor(2, 0);
+	    gl.glVertexAttribDivisor(3, 0);
+	    gl.glVertexAttribDivisor(4, 0);
+	    gl.glVertexAttribDivisor(5, 0);
+	}
+	
+	
+	
+	
+    // -------------------------------------------------------------------------
+    // Shaders
+    // -------------------------------------------------------------------------
+	
+	private static final String POINT_VERTEX_SHADER =
+	        """
+									#version 400 core
+									layout(location = 0) in vec2 position;
+									layout(location = 1) in float size;
+									layout(location = 2) in vec3 color;
+									layout(location = 3) in float visibility;
+									uniform mat4 u_transform;
+									out vec3 fragColor;
+									out float fragVisibility;
+									void main() {
+												vec4 pos = vec4(position, 0.0, 1.0);
+												gl_Position = u_transform * pos;
+												gl_PointSize = size;
+												fragColor = color;
+												fragVisibility = visibility;
+									}
+									""";
+
+	private static final String POINT_FRAGMENT_SHADER =
+	        """
+									#version 400 core
+									in vec3 fragColor;
+									in float fragVisibility;
+									out vec4 color;
+									void main() {
+												if (fragVisibility == 0.0) {
+																discard;
+												}
+												float dist = length(gl_PointCoord - vec2(0.5, 0.5));
+												if (dist < 0.5) {
+																color = vec4(fragColor, 1.0);
+												} else {
+																discard;
+												}
+									}
+									""";
+	
+	private static final String EDGE_VERTEX_SHADER =
+			"""
+			#version 400 core
+			layout(location = 0) in vec2 position;
+			layout(location = 1) in vec3 color;
+			layout(location = 2) in float size;
+			layout(location = 3) in float visibility;
+			uniform mat4 u_transform;
+			out vec3 fragColor;
+			out float fragVisibility;
+			void main() {
+			vec4 pos = vec4(position, 0.0, 1.0);
+			gl_Position = u_transform * pos;
+			fragColor = color;
+			fragVisibility = visibility;
+			}
+			""";
+
+	private static final String EDGE_FRAGMENT_SHADER =
+			"""
+			#version 400 core
+			in vec3 fragColor;
+			in float fragVisibility;
+			out vec4 color;
+			void main() {
+			if (fragVisibility == 0.0) {
+			discard;
+			}
+			color = vec4(fragColor, 1.0);
+			}
+			""";
+
+	private static final String DOUBLE_CIRCLE_VERTEX_SHADER =
+	        """
+			#version 400 core
+			layout(location = 0) in vec2 position;
+			layout(location = 1) in float size;
+			layout(location = 2) in vec3 color;
+			layout(location = 3) in float visibility;
+			uniform mat4 u_transform;
+			out vec3 fragColor;
+			out float fragVisibility;
+			out float fragPointSize;
+			void main() {
+							vec4 pos = vec4(position, 0.0, 1.0);
+							gl_Position = u_transform * pos;
+							gl_PointSize = size;
+							fragColor = color;
+							fragVisibility = visibility;
+							fragPointSize = size;
+			}
+			""";
+
+	private static final String DOUBLE_CIRCLE_FRAGMENT_SHADER =
+	        """
+			#version 400 core
+			in vec3 fragColor;
+			in float fragVisibility;
+			in float fragPointSize;
+			out vec4 color;
+			
+			void main() {
+			    if (fragVisibility == 0.0) {
+			        discard;
+			    }
+			
+			    // Convertir les coordonnées pour qu'elles soient entre -0.5 et 0.5
+			    vec2 centeredCoord = gl_PointCoord - vec2(0.5, 0.5);
+
+			    // Distance stricte depuis le centre (test circulaire)
+			    float dist = length(centeredCoord);
+
+			    // Rejet strict de tout ce qui est en dehors du cercle
+			    if (dist > 0.5) {
+			        discard;
+			    }
+
+			    // Rayons normalisés (pas de conversion en pixels)
+			    float innerRadius = 0.35;
+			    float borderWidth = 5.0 / fragPointSize; // 5 pixels convertis en coordonnées normalisées
+			    float outerRadius = innerRadius + borderWidth;
+
+			    // Tests de distance simplifiés
+			    if (dist < innerRadius) {
+			        color = vec4(fragColor, 1.0);
+			    }
+			    else if (dist < outerRadius) {
+			        color = vec4(1.0, 1.0, 1.0, 1.0);
+			    }
+			    else {
+			        discard; // Tout ce qui est au-delà du cercle extérieur est rejeté
+			    }
+			}
+			""";
+
+
+	private static final String BEZIER_VERTEX_SHADER =
+			"""
+			#version 400 core
+			layout(location = 0) in vec2 p0; // start point
+			layout(location = 1) in vec2 p1; // control point
+			layout(location = 2) in vec2 p2; // end point
+			layout(location = 3) in vec3 color;
+			layout(location = 4) in float size;
+			layout(location = 5) in float visibility;
+
+			uniform mat4 u_transform;
+
+			out vec3 fragColor;
+			out float fragSize;
+			out float fragVisibility;
+
+			void main() {
+			    // Calculate parameter t based on vertex ID (0 to SEGMENTS)
+			    float t = float(gl_VertexID) / 100.0; // For 21 points (0 to 20)
+
+			    // Quadratic Bézier formula: B(t) = (1-t)²P₀ + 2(1-t)tP₁ + t²P₂
+			    float u = 1.0 - t;
+			    vec2 position = u * u * p0 + 2.0 * u * t * p1 + t * t * p2;
+
+			    // Transform to clip space
+			    gl_Position = u_transform * vec4(position, 0.0, 1.0);
+
+			    // Pass attributes to fragment shader
+			    fragColor = color;
+			    fragSize = size;
+			    fragVisibility = visibility;
+
+			    // Set point size if rendering as points
+			    gl_PointSize = size;
+			}
+			""";
+
+	private static final String BEZIER_FRAGMENT_SHADER =
+			"""
+			#version 400 core
+			in vec3 fragColor;
+			in float fragSize;
+			in float fragVisibility;
+
+			out vec4 outColor;
+
+			void main() {
+			    // Discard fragment if visibility is 0
+			    if (fragVisibility == 0.0) {
+			        discard;
+			    }
+			
+			    // Output color with visibility as alpha
+			    outColor = vec4(fragColor, fragVisibility);
+			}
+			""";
 
 
 
@@ -1741,6 +2261,13 @@ public class Graph extends Application implements GLEventListener, GraphSettings
     // Shader utilities
     // -------------------------------------------------------------------------
 
+	/**
+	 * Crée un programme shader OpenGL à partir des sources vertex et fragment fournies.
+	 * @param gl Contexte OpenGL utilisé pour créer et gérer les shaders.
+	 * @param vertexSource Code source du shader de vertex.
+	 * @param fragmentSource Code source du shader de fragment.
+	 * @return L'identifiant du programme shader compilé et lié, ou 0 en cas d'échec.
+	 */
 	private int createShaderProgram(GL4 gl, String vertexSource, String fragmentSource) {
 	    // Compiler les shaders
 	    int vertexShader = compileShader(gl, GL4.GL_VERTEX_SHADER, vertexSource);
@@ -1762,6 +2289,13 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    return program;
 	}
 
+	/**
+	 * Compile un shader OpenGL du type spécifié à partir du code source fourni.
+	 * @param gl Contexte OpenGL utilisé pour la compilation.
+	 * @param type Type de shader à compiler (par exemple GL_VERTEX_SHADER ou GL_FRAGMENT_SHADER).
+	 * @param source Code source GLSL du shader.
+	 * @return L'identifiant du shader compilé, ou 0 si la compilation échoue.
+	 */
 	private int compileShader(GL4 gl, int type, String source) {
 	    int shader = gl.glCreateShader(type);
 	    gl.glShaderSource(shader, 1, new String[]{source}, null);
@@ -1778,6 +2312,12 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    return shader;
 	}
 
+	/**
+	 * Récupère le journal d'information (log) d'un shader, typiquement utilisé en cas d'erreur de compilation pour connaître les détails.
+	 * @param gl Contexte OpenGL utilisé pour interroger le shader.
+	 * @param shader Identifiant du shader concerné.
+	 * @return Le contenu du journal d'information du shader sous forme de chaîne de caractères.
+	 */
 	private String getShaderInfoLog(GL4 gl, int shader) {
 	    IntBuffer logLength = IntBuffer.allocate(1);
 	    gl.glGetShaderiv(shader, GL4.GL_INFO_LOG_LENGTH, logLength);
@@ -1785,7 +2325,11 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	    gl.glGetShaderInfoLog(shader, logLength.get(0), null, 0, log, 0);
 	    return new String(log);
 	}
-	
+
+	/**
+	 * Met à jour la matrice de projection orthographique en fonction des dimensions de la fenêtre, du niveau de zoom et des décalages de vue.
+	 * Cette méthode calcule une matrice de projection adaptée à un rendu 2D ou orthographique, et met à jour le buffer de matrice de projection utilisé dans les shaders.
+	 */
 	private void updateProjectionMatrix() {
 	    float left   = (float) (-WIDTH / 2.0 / zoomFactor + viewOffsetX);
 	    float right  = (float) (WIDTH / 2.0 / zoomFactor + viewOffsetX);

@@ -322,8 +322,8 @@ JNIEXPORT jobject JNICALL Java_graph_Graph_computeThreshold
 
     calculate_threshold(modeSimilitude, edge_factor * num_nodes, &threshold, &antiseuil, similarities);
 
-    printf("Seuil recommandé: %lf, %lf\n", threshold, antiseuil);
-    printf("%lf, %d", means_similitude, num_rows);
+    //printf("Seuil recommandé: %lf, %lf\n", threshold, antiseuil);
+    //printf("%lf, %d", means_similitude, num_rows);
 
     jclass res_class = (*env)->FindClass(env, "graph/Metadata");
     jmethodID constructor = (*env)->GetMethodID(env, res_class, "<init>", "(IDDD)V");

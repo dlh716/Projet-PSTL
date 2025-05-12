@@ -3,6 +3,7 @@ package graph;
 /**
  * Représente une communauté du graphe
  */
+@SuppressWarnings("unused")
 public class Community {
 
     private final int id;

@@ -90,7 +90,7 @@ void compute_average_vectors() {
     }
 
     // Compute and display the average vector for each community
-    printf("Community Averages (From Largest to Smallest) containing more than 0.5 pourcent of the nodes :\n");
+    //printf("Community Averages (From Largest to Smallest) containing more than 0.5 pourcent of the nodes :\n");
 
     for (int comm = 0; comm < num_nodes; comm++) {
         if (community_sizes[comm] > num_nodes/200) {
@@ -103,14 +103,14 @@ void compute_average_vectors() {
             //normalize_vector(community_sums[comm], num_columns);
 
             // Display the normalized average vector
-            printf("Community %d: Size = %d, Normalized Average Vector = [", comm, community_sizes[comm]);
+            /*printf("Community %d: Size = %d, Normalized Average Vector = [", comm, community_sizes[comm]);
             for (int j = 0; j < num_columns; j++) {
                 printf("%.10f", community_sums[comm][j]);
                 if (j < num_columns - 1) {
                     printf(", ");
                 }
             }
-            printf("]\n");
+            printf("]\n");*/
         }
     }
 
@@ -371,7 +371,7 @@ void find_connected_components() {
     }
 
     // Afficher le nombre de composantes connexes et leur taille
-    printf("Number of connected components: %d\n", num_components);
+    //printf("Number of connected components: %d\n", num_components);
     //for (int component = 0; component < num_components; component++) {
     //    printf("Component %d has %d nodes.\n", component, component_sizes[component]);
     //}
@@ -538,10 +538,10 @@ void compute_ratio_S(int *S) {
 
     for (int comm = 0; comm < num_nodes; comm++) {
         if (community_sizes[comm] > num_nodes / 200) {
-            double ratio_s1 = (double)community_s1_counts[comm] / community_sizes[comm];
+            //o_s1 = (double)community_s1_counts[comm] / community_sizes[comm];
 
-            printf("Community %d: Size = %d, Ratio of 1 = %.10f\n", 
-                   comm, community_sizes[comm], ratio_s1);
+            /*printf("Community %d: Size = %d, Ratio of 1 = %.10f\n",
+                   comm, community_sizes[comm], ratio_s1);*/
                    fflush(stdout);
         }
     }
@@ -753,6 +753,6 @@ int leiden_method() {
 
     // Afficher le nombre de communautés uniques à la fin de l'algorithme de Leiden
     int num_communities = count_unique_communities(communities, num_nodes);
-    printf("Number of communities detected: %d\n", num_communities);
+    //printf("Number of communities detected: %d\n", num_communities);
     return num_communities;
 }

@@ -24,8 +24,10 @@ JAVA_EXPORTS = \
 # Configuration de JOGL
 JOGL_DIR = lib/jogl
 JOGL_JARS = $(JOGL_DIR)/jogl-all.jar:$(JOGL_DIR)/gluegen-rt.jar
-JOGL_NATIVE_LIBS = $(JOGL_DIR)/jogl-all-natives-linux-amd64.jar:$(JOGL_DIR)/gluegen-rt-natives-linux-amd64.jar
-CLASSPATH = $(JOGL_JARS):$(JOGL_NATIVE_LIBS):$(OUT_DIR)
+JOGL_NATIVE_LIBS_LINUX = $(JOGL_DIR)/jogl-all-natives-linux-amd64.jar:$(JOGL_DIR)/gluegen-rt-natives-linux-amd64.jar
+JOGL_NATIVE_LIBS_WINDOWS = $(JOGL_DIR)/jogl-all-natives-windows-amd64.jar:$(JOGL_DIR)/gluegen-rt-natives-windows-amd64.jar
+JOGL_NATIVE_LIBS_MACOS = $(JOGL_DIR)/jogl-all-natives-macosx-universal.jar:$(JOGL_DIR)/gluegen-rt-natives-macosx-universal.jar
+CLASSPATH = $(JOGL_JARS):$(JOGL_NATIVE_LIBS_LINUX):$(OUT_DIR)
 
 GRAPH_JAVA = $(SRC_DIR)/*/*.java
 GRAPH_JAVA_MAIN = $(SRC_DIR)/graph/Graph.java

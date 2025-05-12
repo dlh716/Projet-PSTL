@@ -1,13 +1,21 @@
-GNU GENERAL PUBLIC LICENSE
+MODIFIED GNU GENERAL PUBLIC LICENSE – NON COMMERCIAL
 
-Copyright (C) 2025 ARNOULD Yann, BELKADI Selma, DURBIN Deniz Ali,
-FAGBEHOURO Awwal, FLAN Bih, RIBEIRO Damien, TAUCH Ryan, ZIBOUCHE Hamid.
+Copyright (C) 2025
+ARNOULD Yann, BELKADI Selma, DURBIN Deniz Ali, FAGBEHOURO Awwal,
+FLAN Bih, RIBEIRO Damien, TAUCH Ryan, ZIBOUCHE Hamid.
 All rights reserved.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+(at your option) any later version, with the following added restriction:
+
+**Additional Non-Commercial Clause**
+This software and any derivative works may be used, modified, and redistributed
+**for non-commercial purposes only**.
+**Commercial use is strictly prohibited**, including but not limited to:
+selling the software, integrating it into commercial products, or using it within
+a business activity that generates direct or indirect revenue.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -22,6 +30,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 ### Third-Party Licenses
 
 This project uses the following third-party libraries:
+
+- **ForceAtlas2 (Olivier Bodini)**
+  License: Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)
+  https://creativecommons.org/licenses/by-nc/4.0/
+  > You may reuse, modify, and share this library **only for non-commercial purposes**, provided you give appropriate credit.
 
 - **JOGL** – BSD 2-Clause License
   https://jogamp.org/

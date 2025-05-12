@@ -5,6 +5,7 @@ import java.util.ArrayList;
 /**
  * Représente un sommet du graphe
  */
+@SuppressWarnings("unused")
 public class Vertex {
 
     public static int upscale = 8;
@@ -13,6 +14,7 @@ public class Vertex {
 
     private int id;
     private double x, y, diameter;
+    private boolean isVisible = true;
     private boolean isDeleted = false;
     private final ArrayList<Edge> edges = new ArrayList<>();
     private Community community;
@@ -66,13 +68,26 @@ public class Vertex {
         this.x = x;
         this.y = y;
     }
+    
+    /**
+     * Modifie la visibilité du sommet
+     */
+    public void setVisibility(boolean visibility) {
+    	isVisible = visibility;
+    }
+    
+    /**
+     * @return true si le sommet a été supprimé, false sinon
+     */
+    public boolean isVisible() {
+        return isVisible;
+    }
 
     /**
      * Marque le sommet comme supprimé
      */
     public void delete() {
         isDeleted = true;
-        //diameter = 0;
     }
     /**
      * @return true si le sommet a été supprimé, false sinon

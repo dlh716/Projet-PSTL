@@ -10,7 +10,7 @@ void mean_similitude_job(void *args) {
     int count = 0;
     int *local_histogram = data->thread_histograms[data->thread_id];
     
-    printf("Thread %d row %d à %d\n", data->thread_id, data->start_row, data->end_row);
+    //printf("Thread %d row %d à %d\n", data->thread_id, data->start_row, data->end_row);
     
     for (int i = data->start_row; i < data->end_row; i++) {
         for (int j = i + 1; j < data->num_rows; j++) {
@@ -66,7 +66,7 @@ void mean_similitude_job(void *args) {
 
     data->res[data->thread_id] = somme;
     data->cpt[data->thread_id] = count;
-    printf("Thread %d somme = %f count = %d\n", data->thread_id, somme, count);
+    //printf("Thread %d somme = %f count = %d\n", data->thread_id, somme, count);
 }
 
 double calculate_mean_similitude_parallel(int choice, double* similarities) {
@@ -128,11 +128,11 @@ double calculate_mean_similitude_parallel(int choice, double* similarities) {
         count += cpt[t];
     }
 
-    printf("Histogram of Similarities (Normalized):\n");
+    //printf("Histogram of Similarities (Normalized):\n");
     for (int bin = 0; bin < NUM_BINS; bin++) {
-        double bin_start = (choice == 0 || choice == 1) ? -1.0 + (2.0 * bin) / NUM_BINS : (double)bin / NUM_BINS;
-        double bin_end = (choice == 0 || choice == 1) ? -1.0 + (2.0 * (bin + 1)) / NUM_BINS : (double)(bin + 1) / NUM_BINS;
-        printf("Bin [%.2f, %.2f): %d\n", bin_start, bin_end, histogram[bin]);
+        //double bin_start = (choice == 0 || choice == 1) ? -1.0 + (2.0 * bin) / NUM_BINS : (double)bin / NUM_BINS;
+        //double bin_end = (choice == 0 || choice == 1) ? -1.0 + (2.0 * (bin + 1)) / NUM_BINS : (double)(bin + 1) / NUM_BINS;
+        //printf("Bin [%.2f, %.2f): %d\n", bin_start, bin_end, histogram[bin]);
         global_histogram[bin] = histogram[bin]; 
     }
 
@@ -309,7 +309,7 @@ void calculate_threshold(int choice, int N, double * threshold, double * anti_th
         } else if (current_edges > N+100) {
             low = *threshold;
             *threshold = 0.5 * (*threshold + high);
-        } else { printf("seuil trouvé \n");
+        } else { //printf("seuil trouvé \n");
 	         fflush(stdout);
             break;  // On a trouvé le seuil exact
         }

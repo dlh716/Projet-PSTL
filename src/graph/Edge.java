@@ -3,6 +3,7 @@ package graph;
 /**
  * Représente une arête du graphe
  */
+@SuppressWarnings("unused")
 public class Edge {
 
     public static double initial_edge_weight = 1;

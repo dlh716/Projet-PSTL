@@ -1,10 +1,9 @@
 package graph;
 
-import com.jogamp.opengl.GL4;
-
 /**
  * Définit les méthodes à appeler par l'inteface graphique pour modifier les paramètres du graphe
  */
+@SuppressWarnings("unused")
 public interface GraphSettings {
 
     // -------------------------------------------------------------------------
@@ -16,11 +15,12 @@ public interface GraphSettings {
      * @param path Chemin du fichier .csv à charger
      * @param mode Mode de similitude à utiliser
      * @param community Mode de détection de communautés à utiliser
+     * @param edge_factor Ratio d'arêtes souhaité par l'utilisateur (plus il est élevé, plus le graphe sera dense)
      * @return les données du fichier .csv
      * @see GraphData.SimilitudeMode
      * @see GraphData.NodeCommunity
      */
-    double[][] initGraphCsv(String path, GraphData.SimilitudeMode mode, GraphData.NodeCommunity community);
+    double[][] initGraphCsv(String path, GraphData.SimilitudeMode mode, GraphData.NodeCommunity community, int edge_factor);
 
     /**
      * Initialise le graphe avec les données du fichier .dot
@@ -180,7 +180,7 @@ public interface GraphSettings {
      * Affiche les sommets dont le degré est supérieur ou égal à degree
      * @param degree Degré minimum des sommets à afficher
      */
-    void setMiniumDegree(int degree);
+    void setMinimumDegree(int degree);
 
     /**
      * @param vertex_id Identifiant du sommet à supprimer
@@ -196,8 +196,14 @@ public interface GraphSettings {
 
     /**
      * Exporte le graphe en image PNG
-     * @param path Chemin de l'image PNG à exporter
+     * @param filename Nom du fichier PNG à créer
      */
-    void exportToPng(GL4 gl, String path);
+    void exportToPng(String filename);
+
+    /**
+     * Exporte le graphe en image améliorée PNG
+     * @param filename Nom du fichier PNG à créer
+     */
+    void upgradedExportToPng(String filename);
 
 }

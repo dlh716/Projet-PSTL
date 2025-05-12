@@ -4,6 +4,7 @@ package graph;
  * Représente une arête reçue par un appel JNI depuis le programme C, en attendant de la convertir en arête du graphe
  * @see Edge
  */
+@SuppressWarnings("unused")
 public class EdgeC {
 
     private final int start;

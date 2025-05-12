@@ -114,13 +114,13 @@ void load_csv_data(const char *filename) {
     printf("Loaded CSV with %d rows and %d columns.\n", num_rows, num_columns);
     
         // Afficher les trois premières lignes
-    printf("Les 3 premières lignes des données :\n");
+    /*printf("Les 3 premières lignes des données :\n");
     for (int i = 0; i < 5 && i < num_rows; i++) {
         for (int j = 0; j < num_columns; j++) {
             printf("%f ", data[i][j]);
         }
         printf("\n");
-    }
+    }*/
 
     // On ne garde pas la première ligne dans les données
     num_rows = num_rows - 1;
