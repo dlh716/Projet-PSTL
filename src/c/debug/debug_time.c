@@ -18,8 +18,8 @@ void chr_start_clock(Chrono chr)
 
         char buf[64];
         // last_start, time since last start, time unpaused since call to start_clock
-        //sprintf(buf, "%9ld, 0, 0\n", millis_of_clock(chr->start));
-       // write(chr->fd, buf, strlen(buf) * sizeof(char));
+        sprintf(buf, "%9ld, 0, 0\n", millis_of_clock(chr->start));
+        write(chr->fd, buf, strlen(buf) * sizeof(char));
     }
 }
 
@@ -46,8 +46,8 @@ void chr_restart(Chrono chr)
     if ( chr->isPaused ){
         if ( chr->fd != -1 ){
             char buf[128];
-            //sprintf(buf, "%9ld, 0, %9ld\n", chr->start, chr->duration);
-            //write(chr->fd, buf, strlen(buf) * sizeof(char));
+            sprintf(buf, "%9ld, 0, %9ld\n", chr->start, chr->duration);
+            write(chr->fd, buf, strlen(buf) * sizeof(char));
         }
 
         gettimeofday(&chr->tm, NULL);
@@ -67,13 +67,12 @@ void chr_assign_log(Chrono chr, char* filepath)
 {
     chr_close_log(chr);
 
-    chr->fd = open(filepath, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    chr->fd = open(filepath, O_WRONLY | O_CREAT, 0666);
 }
 
 void chr_close_log(Chrono chr)
 {
     if ( chr->fd != -1 ){
-        fsync(chr->fd);
         close(chr->fd);
     }
 }

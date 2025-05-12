@@ -24,6 +24,7 @@ void kmeans_iteration(int num_points, int num_clusters, int *labels, double cent
 void update_clusters_original();
 void update_clusters();
 void repulsion_intra_clusters(double(*forces)[2], double FMaxX, double FMaxY);
+void parallel_intra_clusters(double(*forces)[2], double FMaxX, double FMaxY);
 
 // Fonction pour initialiser les centres de clusters de manière aléatoire
 void initialize_centers();
@@ -41,7 +42,7 @@ void init_clusters(int num_clusters);
 // Ajouter un noeud à un cluster, redimensionner si nécessaire
 void add_node_to_cluster(int cluster_id, int node);
 void random_point_in_plane(Point *p);
-
-
+void noverlap_force(double (*forces)[2], double FMaxX, double FMaxY);
+void grid_clustering(int num_points, int num_clusters, int *labels, double Lx, double Ly);
+void maintainSpatialGrid();
 #endif
-

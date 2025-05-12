@@ -11,7 +11,8 @@ short str_is_number(char* line);
 void load_csv_data(const char *filename);
 void lireColonneCSV(int *, int*);
 void compute_ratio_S(int *);
-
+void init_S(int num_nodes);
+void free_S();
 void parse_dot_file(const char *filename);
 void freeNodeNames();
 

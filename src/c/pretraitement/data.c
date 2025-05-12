@@ -1,3 +1,6 @@
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <stdlib.h>
 #include "data.h"
 #include "../global.h"
 
@@ -5,8 +8,17 @@ int nbValeurs;
 double **data = NULL;
 int num_rows = 0, num_columns = 0;
 char delimiter[1] = "\0";
-int S[MAX_NODES]={0};
+int *S = NULL;
+
 char **node_names = NULL;
+
+char* my_getline(FILE *file) {
+    static char buffer[MAX_LINE_LENGTH];
+    if (fgets(buffer, MAX_LINE_LENGTH, file) != NULL) {
+        return buffer;
+    }
+    return NULL;
+}
 
 short str_is_number(char* line)
 {
@@ -37,10 +49,9 @@ void load_csv_data(const char *filename) {
     }
 
     char *line = NULL;
-    size_t len = 0;
 
     // Première passe : Compter les lignes et les colonnes
-    while (getline(&line, &len, file) != -1) {
+    while ((line = my_getline(file)) != NULL) {
         // Supprimer les retours à la ligne potentiels
         line[strcspn(line, "\r\n")] = '\0';
         num_rows++;
@@ -70,7 +81,7 @@ void load_csv_data(const char *filename) {
     // Deuxième passe : Lire les données
     rewind(file);
     int row = 0;
-    while (getline(&line, &len, file) != -1) {
+    while ((line = my_getline(file)) != NULL) {
         line[strcspn(line, "\r\n")] = '\0';  // Supprimer les retours à la ligne potentiels
 
         int col = 0;
@@ -100,32 +111,32 @@ void load_csv_data(const char *filename) {
             start = end + 1;  // Passer à la prochaine valeur
         }
 
-        // Si le nombre de colonnes lues est différent de num_columns, avertir
-        if (col != num_columns) {
-            //printf("Warning: Row %d has %d columns (expected %d).\n", row, col, num_columns);
-        }
-
         row++;
     }
     
     fclose(file);
-    free(line);  // Libérer la mémoire allouée par getline
+    free(line);  // Libérer la mémoire allouée par my_getline
 
-    printf("Loaded CSV with %d rows and %d columns.\n", num_rows, num_columns);
-    
-        // Afficher les trois premières lignes
-    /*printf("Les 3 premières lignes des données :\n");
-    for (int i = 0; i < 5 && i < num_rows; i++) {
-        for (int j = 0; j < num_columns; j++) {
-            printf("%f ", data[i][j]);
-        }
-        printf("\n");
-    }*/
 
     // On ne garde pas la première ligne dans les données
     num_rows = num_rows - 1;
 }
 
+void init_S(int num_nodes) {
+    int size = (num_nodes * 2 < MAX_NODES) ? num_nodes * 2 : MAX_NODES;
+    S = (int *)malloc(sizeof(int) * size);
+    if (!S) {
+        fprintf(stderr, "Error d'allocation mémoire: init_S\n");
+        exit(1);
+    }
+}
+
+void free_S() {
+    if (S) {
+        free(S);
+        S = NULL;
+    }
+}
 
 // Fonction pour lire les valeurs de la première colonne d'un fichier CSV S[MAX_NODES]
 void lireColonneCSV(int *S,int *nbValeurs) {
@@ -195,57 +206,6 @@ void split_str(char * line, size_t size, char* delimiters, int nb_delimiter) {
         ++line;
     }
 
-}
-
-char* next_str(char** line, size_t* s) {
-
-    while ( **line == '\0' ) { 
-        ++*line; 
-        --*s;
-    }
-
-    char * start = *line;
-    int cpt = 0;
-    while ( **line != '\0' && *s > 0) {
-        ++cpt;
-        ++*line;
-        --*s;
-    }
-
-    char* res = NULL;
-    if ( cpt != 0 ) {
-
-        res = (char*) malloc(sizeof(char) * (cpt + 1));
-        for (int i = 0; i < cpt; ++i) {
-            res[i] = start[i];
-        }
-        res[cpt] = '\0';
-    }
-
-    return res;
-}
-
-void find_parameters
-    (char** line, size_t* size, double* weight, char** node_name) 
-{
-
-    while (*size > 0) {
-        char* next = next_str(line, size);
-
-        if ( weight != NULL && *size > 0 && strcmp(next, "weight") == 0 ) {
-            char* next = next_str(line, size);
-            if ( next != NULL ) {
-                sscanf(next, "%lf", weight);
-                free(next);
-            }
-        } else if ( node_name != NULL && *size > 0 && strcmp(next, "label") == 0 ) {
-            char* next = next_str(line, size);
-            if ( next != NULL ) {
-                *node_name = next;
-            }
-        }
-    }
-    
 }
 
 int hash_string(char* label) {

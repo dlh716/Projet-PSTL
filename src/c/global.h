@@ -9,9 +9,9 @@
 
 extern Edge edges[MAX_EDGES]; // Pour les arêtes normales
 extern char **node_names; // Array to store node names as strings      
-extern int S[MAX_NODES];
+extern int *S;
 extern Point vertices[MAX_NODES];
-extern Point velocities[MAX_NODES];
+extern double velocities[MAX_NODES][2];
 extern int node_degrees[MAX_NODES];
 
 extern _Atomic int num_edges;
@@ -34,7 +34,7 @@ extern double amortissement;
 #include "c_graph/cluster.h"
 
 // Structures utilisées dans la méthode de Louvain
-extern jint communities[MAX_NODES]; // Stocke les communautés détectées par Louvain
+extern int communities[MAX_NODES]; // Stocke les communautés détectées par Louvain
 extern int clusters[MAX_NODES];
 extern float cluster_colors[MAX_NODES][3];
 extern double centers[MAX_NODES][2];
@@ -50,6 +50,11 @@ extern int espacement;
 extern double repulsion_coeff;
 extern int saut;
 extern int mode;
+
+extern int no_overlap;
+extern double initial_node_size;
+extern double degree_scale_factor;
+
 
 #include "c_graph/communities.h"
 
@@ -81,7 +86,6 @@ extern int nbValeurs;
 extern double **data;  // Stocker les données CSV
 extern int num_rows, num_columns;
 extern char delimiter[1];
-extern int S[MAX_NODES];
 
 
 #include "pretraitement/similarity.h"
