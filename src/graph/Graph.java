@@ -1988,61 +1988,64 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	private void renderBezierCurves(GL4 gl) {
 	    gl.glUseProgram(bezierShaderProgram);
 	    
-	    // Set up the buffer data for the shader
-	    // Upload control points to GPU
+    	// Préparer les données à envoyer au shader
+    	// Envoyer les points de contrôle à la GPU
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, bezierBuffer);
 	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) bezierPoints.length * Float.BYTES, FloatBuffer.wrap(bezierPoints));
 	    
-	    // Configure vertex attributes for the control points
-	    // Each curve has 3 control points (p0, p1, p2), each with 2 components (x, y)
-	    final int STRIDE = 6 * Float.BYTES; // 6 floats per curve (p0x, p0y, p1x, p1y, p2x, p2y)
+		// Configurer les attributs de sommet pour les points de contrôle
+    	// Chaque courbe a 3 points de contrôle (p0, p1, p2), chacun avec 2 composantes (x, y)
+	    final int STRIDE = 6 * Float.BYTES; // 6 floats par courbe (p0x, p0y, p1x, p1y, p2x, p2y)
 	    
-	    // Start point (p0)
+	    // Point de départ (p0)
 	    gl.glEnableVertexAttribArray(0);
 	    gl.glVertexAttribPointer(0, 2, GL4.GL_FLOAT, false, STRIDE, 0);
-	    gl.glVertexAttribDivisor(0, 1); // One value per instance
+	    gl.glVertexAttribDivisor(0, 1); // Une valeur par instance
 	    
-	    // Control point (p1)
+	    // Point de contrôle (p1)
 	    gl.glEnableVertexAttribArray(1);
 	    gl.glVertexAttribPointer(1, 2, GL4.GL_FLOAT, false, STRIDE, 2 * Float.BYTES);
-	    gl.glVertexAttribDivisor(1, 1); // One value per instance
+	    gl.glVertexAttribDivisor(1, 1); // Une valeur par instance
 	    
-	    // End point (p2)
+	    // Point final (p2)
 	    gl.glEnableVertexAttribArray(2);
 	    gl.glVertexAttribPointer(2, 2, GL4.GL_FLOAT, false, STRIDE, 4 * Float.BYTES);
-	    gl.glVertexAttribDivisor(2, 1); // One value per instance
+	    gl.glVertexAttribDivisor(2, 1); // Une valeur par instance
 	    
-	    // Color attribute
+	    // Attribut couleur
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, bezierColorBuffer);
 	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) bezierColors.length * Float.BYTES, FloatBuffer.wrap(bezierColors));
 	    gl.glEnableVertexAttribArray(3);
 	    gl.glVertexAttribPointer(3, 3, GL4.GL_FLOAT, false, 0, 0);
-	    gl.glVertexAttribDivisor(3, 1); // One color per curve
+	    gl.glVertexAttribDivisor(3, 1); // Une couleur par courbe
 	    
-	    // Size attribute
+	    // Attribut taille
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, bezierSizeBuffer);
 	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) bezierSizes.length * Float.BYTES, FloatBuffer.wrap(bezierSizes));
 	    gl.glEnableVertexAttribArray(4);
 	    gl.glVertexAttribPointer(4, 1, GL4.GL_FLOAT, false, 0, 0);
-	    gl.glVertexAttribDivisor(4, 1); // One size per curve
+	    gl.glVertexAttribDivisor(4, 1); // Une taille par courbe
 	    
-	    // Visibility attribute
+	    // Attribut de visibilité
 	    gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, bezierVisibilityBuffer);
 	    gl.glBufferSubData(GL4.GL_ARRAY_BUFFER, 0, (long) bezierVisibility.length * Float.BYTES, FloatBuffer.wrap(bezierVisibility));
 	    gl.glEnableVertexAttribArray(5);
 	    gl.glVertexAttribPointer(5, 1, GL4.GL_FLOAT, false, 0, 0);
-	    gl.glVertexAttribDivisor(5, 1); // One visibility value per curve
+	    gl.glVertexAttribDivisor(5, 1); // Une valeur de visibilité par courbe
 	    
-	    // Set transformation matrix uniform
+	    // Définir la matrice de transformation (uniforme)
 	    int transformLoc = gl.glGetUniformLocation(bezierShaderProgram, "u_transform");
 	    gl.glUniformMatrix4fv(transformLoc, 1, false, projectionMatrix);
 	    
-	    // Draw multiple instances of the Bézier curve with different parameters
-	    final int SEGMENTS = 100; // Number of segments to render each curve with
+	    // Dessiner plusieurs instances de la courbe de Bézier avec différents paramètres
+	    final int SEGMENTS = 100; // Nombre de segments pour approximer chaque courbe
+		// Il faut également changer manuellement le nombre de segments dans BEZIER_VERTEX_SHADER, valeurs non liées
+		// TODO : modifier shader pour assigner une variable correspondant au nombre de segments
+
 	    gl.glLineWidth(2f);
 	    gl.glDrawArraysInstanced(GL4.GL_LINE_STRIP, 0, SEGMENTS + 1, edges.size());
 	    
-	    // Disable vertex attributes
+	    // Désactiver les attributs de sommet
 	    gl.glDisableVertexAttribArray(0);
 	    gl.glDisableVertexAttribArray(1);
 	    gl.glDisableVertexAttribArray(2);
@@ -2067,41 +2070,41 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 	
 	private static final String POINT_VERTEX_SHADER =
 	        """
-									#version 400 core
-									layout(location = 0) in vec2 position;
-									layout(location = 1) in float size;
-									layout(location = 2) in vec3 color;
-									layout(location = 3) in float visibility;
-									uniform mat4 u_transform;
-									out vec3 fragColor;
-									out float fragVisibility;
-									void main() {
-												vec4 pos = vec4(position, 0.0, 1.0);
-												gl_Position = u_transform * pos;
-												gl_PointSize = size;
-												fragColor = color;
-												fragVisibility = visibility;
-									}
-									""";
+			#version 400 core
+			layout(location = 0) in vec2 position;
+			layout(location = 1) in float size;
+			layout(location = 2) in vec3 color;
+			layout(location = 3) in float visibility;
+			uniform mat4 u_transform;
+			out vec3 fragColor;
+			out float fragVisibility;
+			void main() {
+				vec4 pos = vec4(position, 0.0, 1.0);
+				gl_Position = u_transform * pos;
+				gl_PointSize = size;
+				fragColor = color;
+				fragVisibility = visibility;
+			}
+			""";
 
 	private static final String POINT_FRAGMENT_SHADER =
 	        """
-									#version 400 core
-									in vec3 fragColor;
-									in float fragVisibility;
-									out vec4 color;
-									void main() {
-												if (fragVisibility == 0.0) {
-																discard;
-												}
-												float dist = length(gl_PointCoord - vec2(0.5, 0.5));
-												if (dist < 0.5) {
-																color = vec4(fragColor, 1.0);
-												} else {
-																discard;
-												}
-									}
-									""";
+			#version 400 core
+			in vec3 fragColor;
+			in float fragVisibility;
+			out vec4 color;
+			void main() {
+				if (fragVisibility == 0.0) {
+					discard;
+				}
+				float dist = length(gl_PointCoord - vec2(0.5, 0.5));
+				if (dist < 0.5) {
+					color = vec4(fragColor, 1.0);
+				} else {
+					discard;
+				}
+			}
+			""";
 	
 	private static final String EDGE_VERTEX_SHADER =
 			"""
@@ -2114,10 +2117,10 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 			out vec3 fragColor;
 			out float fragVisibility;
 			void main() {
-			vec4 pos = vec4(position, 0.0, 1.0);
-			gl_Position = u_transform * pos;
-			fragColor = color;
-			fragVisibility = visibility;
+				vec4 pos = vec4(position, 0.0, 1.0);
+				gl_Position = u_transform * pos;
+				fragColor = color;
+				fragVisibility = visibility;
 			}
 			""";
 
@@ -2128,10 +2131,10 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 			in float fragVisibility;
 			out vec4 color;
 			void main() {
-			if (fragVisibility == 0.0) {
-			discard;
-			}
-			color = vec4(fragColor, 1.0);
+				if (fragVisibility == 0.0) {
+					discard;
+				}
+				color = vec4(fragColor, 1.0);
 			}
 			""";
 
@@ -2147,12 +2150,12 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 			out float fragVisibility;
 			out float fragPointSize;
 			void main() {
-							vec4 pos = vec4(position, 0.0, 1.0);
-							gl_Position = u_transform * pos;
-							gl_PointSize = size;
-							fragColor = color;
-							fragVisibility = visibility;
-							fragPointSize = size;
+				vec4 pos = vec4(position, 0.0, 1.0);
+				gl_Position = u_transform * pos;
+				gl_PointSize = size;
+				fragColor = color;
+				fragVisibility = visibility;
+				fragPointSize = size;
 			}
 			""";
 
@@ -2197,7 +2200,6 @@ public class Graph extends Application implements GLEventListener, GraphSettings
 			    }
 			}
 			""";
-
 
 	private static final String BEZIER_VERTEX_SHADER =
 			"""
